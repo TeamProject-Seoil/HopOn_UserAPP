@@ -34,7 +34,7 @@
             android:value="o5lcffxody"/>
 
         <activity
-            android:name=".start.StartLoding"
+            android:name=".ui.StartLoding"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

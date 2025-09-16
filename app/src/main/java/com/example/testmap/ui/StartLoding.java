@@ -1,4 +1,4 @@
-package com.example.testmap.start;
+package com.example.testmap.ui;
 
 import android.content.Intent;
 import android.os.Bundle;
