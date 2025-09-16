@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 개발용: 에뮬레이터에서 호스트 PC 접근 허용 -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">testhopon.p-e.kr</domain>
+    </domain-config>
+</network-security-config>
