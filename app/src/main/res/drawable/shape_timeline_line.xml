@@ -1,0 +1,4 @@
+<!-- res/drawable/shape_timeline_line.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#3478F6"/> <!-- 기본 파랑 -->
+</shape>

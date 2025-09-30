@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="64dp"
+    android:paddingStart="16dp"
+    android:clipChildren="false"
+    android:paddingEnd="25dp"
+    android:background="?attr/selectableItemBackground">
+
+    <!--내위치 아이콘 -->
+    <ImageView
+        android:id="@+id/ivMyLocation"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:src="@drawable/ic_user_location"
+        android:contentDescription="@string/cd_my_location"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_marginEnd="12dp"/>
+
+    <!-- 왼쪽 타임라인 영역(고정 폭) -->
+    <FrameLayout
+        android:id="@+id/timeline"
+        android:layout_width="28dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="40dp"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <!-- 세로 라인 -->
+        <View
+            android:id="@+id/line"
+            android:layout_width="2dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="center_horizontal"
+            android:background="@drawable/shape_timeline_line"/>
+
+        <!-- 정류장(또는 차량) 위치 점 -->
+        <ImageView
+            android:id="@+id/dot"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:layout_gravity="center_vertical|center_horizontal"
+            android:src="@drawable/shape_stop_dot"/>
+
+        <!--버스 위치 아이콘 배치-->
+        <ImageView
+            android:id="@+id/busMark"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_gravity="center_horizontal|center_vertical"
+            android:src="@drawable/ic_buslocation"
+            android:visibility="gone"/>
+
+    </FrameLayout>
+
+    <!-- 내용 영역 -->
+    <LinearLayout
+        android:id="@+id/content"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        app:layout_constraintStart_toEndOf="@id/timeline"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <TextView
+            android:id="@+id/tvStopName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="정류장 이름"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#222222"/>
+
+        <TextView
+            android:id="@+id/tvArsId"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="07157"
+            android:textSize="12sp"
+            android:textColor="#7A7A7A"
+            android:layout_marginTop="2dp"/>
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

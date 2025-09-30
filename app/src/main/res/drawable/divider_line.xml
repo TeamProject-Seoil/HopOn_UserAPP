@@ -1,0 +1,4 @@
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <size android:height="1dp"/>      <!-- 두께 -->
+    <solid android:color="#1F000000"/> <!-- 색(연한 검정). 필요하면 바꿔도 됨 -->
+</shape>

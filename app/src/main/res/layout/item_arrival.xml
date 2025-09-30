@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="12dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:background="?attr/selectableItemBackground"
+    android:id="@+id/underBarInfo">
+
+    <ImageView
+        android:id="@+id/ivBus"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:contentDescription="@null"
+        android:importantForAccessibility="no"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- 노선명 -->
+    <TextView
+        android:id="@+id/tvRoute"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:textColor="#000000"
+        android:textSize="16sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:layout_marginStart="12dp"
+        app:layout_constraintStart_toEndOf="@id/ivBus"
+        app:layout_constraintEnd_toStartOf="@id/tvArr1"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- 방면 -->
+    <TextView
+        android:id="@+id/tvDir"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:textColor="#666"
+        android:textSize="12sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:layout_marginTop="2dp"
+        app:layout_constraintStart_toStartOf="@id/tvRoute"
+        app:layout_constraintEnd_toStartOf="@id/tvArr1"
+        app:layout_constraintTop_toBottomOf="@id/tvRoute" />
+
+    <!-- 혼잡도 1: 항상 오른쪽 끝 -->
+    <TextView
+        android:id="@+id/tvCong1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textStyle="bold"
+        android:textSize="12sp"
+        android:maxLines="1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/tvArr1"
+        app:layout_constraintBottom_toBottomOf="@id/tvArr1" />
+
+    <!-- 도착 1: 혼잡도 왼쪽에서 확장 -->
+    <TextView
+        android:id="@+id/tvArr1"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textColor="#000000"
+        android:maxLines="1"
+        app:layout_constraintStart_toEndOf="@id/tvDir"
+        app:layout_constraintEnd_toStartOf="@id/tvCong1"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- 혼잡도 2: 항상 오른쪽 끝 -->
+    <TextView
+        android:id="@+id/tvCong2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textStyle="bold"
+        android:textSize="12sp"
+        android:maxLines="1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/tvArr2"
+        app:layout_constraintBottom_toBottomOf="@id/tvArr2" />
+
+    <!-- 도착 2: 혼잡도 왼쪽에서 확장 -->
+    <TextView
+        android:id="@+id/tvArr2"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textColor="#000000"
+        android:maxLines="1"
+        app:layout_constraintStart_toEndOf="@id/tvDir"
+        app:layout_constraintEnd_toStartOf="@id/tvCong2"
+        app:layout_constraintTop_toBottomOf="@id/tvArr1" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
