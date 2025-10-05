@@ -104,10 +104,30 @@
 
             <!-- ✅ 비밀번호 제약 조건 표시 -->
             <TextView
-                android:id="@+id/password_rules"
+                android:id="@+id/password_rules1"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="비밀번호는 10~16자, 영문/숫자 조합, 공백 불가"
+                android:textSize="12sp"
+                android:textColor="#888888"
+                android:layout_marginTop="4dp"
+                android:paddingStart="4dp"/>
+
+            <TextView
+                android:id="@+id/password_rules2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="영문 대문자, 소문자, 숫자 중 2종류 혼합(특수문자 불가)"
+                android:textSize="12sp"
+                android:textColor="#888888"
+                android:layout_marginTop="4dp"
+                android:paddingStart="4dp"/>
+
+            <TextView
+                android:id="@+id/password_rules3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="3자리 연속된 키보드 상 문제, 숫자열은 제한"
                 android:textSize="12sp"
                 android:textColor="#888888"
                 android:layout_marginTop="4dp"
