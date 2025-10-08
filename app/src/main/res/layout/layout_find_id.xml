@@ -146,45 +146,57 @@
         app:layout_constraintTop_toBottomOf="@id/email_input_layout"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- 남은 시간 표시 -->
-    <TextView
-        android:id="@+id/text_timer"
-        android:layout_width="wrap_content"
+    <!-- 인증 코드 섹션 전체를 감싸는 LinearLayout -->
+    <LinearLayout
+        android:id="@+id/layout_code_section"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="⏱ 10:00"
-        android:textColor="#FF0000"
-        android:textSize="14sp"
-        app:layout_constraintTop_toBottomOf="@id/btn_send_code"
-        app:layout_constraintStart_toStartOf="@id/email_input_layout"/>
-
-    <!-- 인증코드 입력 -->
-    <EditText
-        android:id="@+id/code_input"
-        android:layout_width="0dp"
-        android:layout_height="56dp"
+        android:orientation="vertical"
         android:layout_marginTop="16dp"
         android:layout_marginStart="32dp"
-        android:layout_marginEnd="140dp"
-        android:hint="인증코드 입력"
-        android:inputType="number"
-        android:background="@drawable/edittext_outline"
-        app:layout_constraintTop_toBottomOf="@id/text_timer"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
-    <!-- 인증 확인 버튼 -->
-    <androidx.appcompat.widget.AppCompatButton
-        android:id="@+id/check_code"
-        android:layout_width="100dp"
-        android:layout_height="46dp"
         android:layout_marginEnd="32dp"
-        android:text="확인"
-        android:background="@drawable/main_blue_color"
-        android:textColor="@android:color/white"
-        app:layout_constraintTop_toTopOf="@id/code_input"
-        app:layout_constraintBottom_toBottomOf="@id/code_input"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/btn_send_code"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- 타이머 -->
+        <TextView
+            android:id="@+id/text_timer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⏱ 10:00"
+            android:textColor="#FF0000"
+            android:textSize="14sp"
+            android:layout_marginBottom="8dp" />
+
+        <!-- 인증 코드 입력 + 확인 버튼 한 줄 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/code_input"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:hint="인증코드 입력"
+                android:inputType="number"
+                android:background="@drawable/edittext_outline"
+                android:layout_marginEnd="8dp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/check_code"
+                android:layout_width="100dp"
+                android:layout_height="46dp"
+                android:text="확인"
+                android:background="@drawable/main_blue_color"
+                android:textColor="@android:color/white" />
+        </LinearLayout>
+
+    </LinearLayout>
+
 
     <!-- 아이디 찾기 버튼 -->
     <androidx.appcompat.widget.AppCompatButton
@@ -200,7 +212,6 @@
         android:textColor="@color/white"
         android:textSize="20sp"
         android:textStyle="bold"
-        app:layout_constraintTop_toBottomOf="@id/code_input"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
