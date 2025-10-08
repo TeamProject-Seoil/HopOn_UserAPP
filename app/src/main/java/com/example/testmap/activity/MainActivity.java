@@ -215,8 +215,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     // ===== 정류장 API 호출 =====
-    private void fetchNearStations(double x, double y, int radius) {
-        ApiClient.get().getNearStations(x, y, radius).enqueue(new retrofit2.Callback<List<StationDto>>() {
+    private void fetchNearStations(double longitude, double latitude, int radius) {
+        ApiClient.get().getNearbyStations(longitude, latitude, radius).enqueue(new retrofit2.Callback<List<StationDto>>() {
             @Override public void onResponse(retrofit2.Call<List<StationDto>> call,
                                              retrofit2.Response<List<StationDto>> res) {
                 if (!res.isSuccessful() || res.body() == null) {
