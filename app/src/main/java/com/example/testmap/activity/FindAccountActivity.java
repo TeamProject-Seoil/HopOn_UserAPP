@@ -105,6 +105,22 @@ public class FindAccountActivity extends AppCompatActivity {
         btnFindId.setTextColor(ContextCompat.getColor(this, android.R.color.black));
         btnFindPw.setBackgroundColor(ContextCompat.getColor(this, R.color.mainblue));
         btnFindPw.setTextColor(ContextCompat.getColor(this, android.R.color.white));
+
+        frameContent.removeAllViews();
+        View idView = View.inflate(this, R.layout.layout_find_id, frameContent);
+        // 🔹 layout_find_pw.xml 내부 뷰 연결
+        Button btnSendCode = idView.findViewById(R.id.btn_send_code);
+        LinearLayout layoutCodeSection = idView.findViewById(R.id.layout_code_section); // 인증코드 입력 부분
+
+        // 처음엔 안보이게 (XML에서 visibility="gone" 해놨을 가능성 있음)
+        layoutCodeSection.setVisibility(View.GONE);
+
+        // 인증요청 버튼 클릭 시 나타나게
+        btnSendCode.setOnClickListener(v -> {
+            layoutCodeSection.setVisibility(View.VISIBLE);
+            layoutCodeSection.setAlpha(0f);
+            layoutCodeSection.animate().alpha(1f).setDuration(300).start(); // 자연스러운 페이드인
+        });
     }
 
     /** 비밀번호 찾기 탭 표시 */
@@ -152,6 +168,22 @@ public class FindAccountActivity extends AppCompatActivity {
                 }
             }
         }
+        frameContent.removeAllViews();
+        View pwView = View.inflate(this, R.layout.layout_find_pw, frameContent);
+
+        // 🔹 layout_find_pw.xml 내부 뷰 연결
+        Button btnSendCode = pwView.findViewById(R.id.btn_send_code);
+        LinearLayout layoutCodeSection = pwView.findViewById(R.id.layout_code_section); // 인증코드 입력 부분
+
+        // 처음엔 안보이게 (XML에서 visibility="gone" 해놨을 가능성 있음)
+        layoutCodeSection.setVisibility(View.GONE);
+
+        // 인증요청 버튼 클릭 시 나타나게
+        btnSendCode.setOnClickListener(v -> {
+            layoutCodeSection.setVisibility(View.VISIBLE);
+            layoutCodeSection.setAlpha(0f);
+            layoutCodeSection.animate().alpha(1f).setDuration(300).start(); // 자연스러운 페이드인
+        });
     }
 
     /** 아이디 찾기 폼 */
