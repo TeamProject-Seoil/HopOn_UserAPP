@@ -90,7 +90,7 @@ public class AccountEditActivity extends AppCompatActivity {
         updateButton        = findViewById(R.id.btn_update);
         btnSendCode         = findViewById(R.id.btn_send_code);
         btnVerifyCode       = findViewById(R.id.btn_verify_code);
-        passwordRules       = findViewById(R.id.password_rules);
+       // passwordRules       = findViewById(R.id.password_rules);
         textTimer           = findViewById(R.id.text_timer);
     }
 

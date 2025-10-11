@@ -24,13 +24,18 @@ import androidx.core.view.GravityCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.fragment.app.Fragment;
+
 
 import com.example.testmap.R;
+import com.example.testmap.dto.ReservationResponse;
 import com.example.testmap.dto.StationDto;
+import com.example.testmap.model.CancelResult;
 import com.example.testmap.service.ApiClient;
 import com.example.testmap.service.ApiService;
 import com.example.testmap.ui.ArrivalsBottomSheet;
 import com.example.testmap.util.TokenStore;
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.naver.maps.geometry.LatLng;
 import com.naver.maps.map.LocationTrackingMode;
 import com.naver.maps.map.MapView;
@@ -44,6 +49,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import okhttp3.ResponseBody;
+import retrofit2.Call;
+import retrofit2.Response;
 
 /**
  * 앱 메인 화면
@@ -88,12 +95,34 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private static final String CLIENT_TYPE = "USER_APP";
 
+    //============예약 바텀 시트 필드 ===================
+    private View bottomSheet;
+    private com.google.android.material.bottomsheet.BottomSheetBehavior<View> bottomBehavior;
+
+    private TextView tvRoute, tvDir, tvFrom, tvTo;
+    private View btnCancel;
+
+    //예약 취소
+    private Long currentReservationId = null;
+
+    //액티비티 화면 정리
+    private static final String TAG_ARRIVALS_SHEET = "arrivals";
+
+    private boolean hasActiveReservation = false; // 서버 조회 후 최신 상태 저장
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+
+        //==========예약 바텀 시트 =======================
+        bottomSheet = findViewById(R.id.bottom_sheet_layout);
+        bottomBehavior = com.google.android.material.bottomsheet.BottomSheetBehavior.from(bottomSheet);
+        bottomBehavior.setHideable(true);
+        bottomBehavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_HIDDEN);
+        try { bottomBehavior.setDraggable(true); } catch (Throwable ignore) {} // 가능 버전만
 
         // 상태바/네비게이션바 여백 반영
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -146,6 +175,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         // 메뉴 초기화
         MenuLayout();
 
+        initBottomSheetViews();
     }
 
     /** 메뉴 버튼 영역 초기화 */
@@ -194,6 +224,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mapView.onResume();
         renderHeaderByAuth();
         ensureLocationTracking();
+        fetchAndShowActiveReservation();
     }
     @Override protected void onPause()  { super.onPause();  mapView.onPause(); }
     @Override protected void onStop()   { super.onStop();   mapView.onStop(); }
@@ -252,6 +283,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
             // ★ 마커 클릭: 바텀시트만 띄움 (여기서 BusRouteActivity로 바로 가지 않음)
             m.setOnClickListener(overlay -> {
+                if(hasActiveReservation){
+                    return true;
+                }
                 StationDto st = (StationDto) overlay.getTag();
                 ArrivalsBottomSheet f = ArrivalsBottomSheet.newInstance(
                         st.arsId,
@@ -487,5 +521,184 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 showLoggedOutUi();
             }
         });
+        updateReservationSheetVisibility(false, false);
+        hasActiveReservation = false;       // ← 추가
+        currentReservationId = null;
     }
+
+    //==========예약 조회 =====================
+    private void fetchAndShowActiveReservation() {
+        String access = TokenStore.getAccess(getApplicationContext());
+        if (TextUtils.isEmpty(access)) {
+            updateReservationSheetVisibility(false, false);
+            enforceMainUiState();
+            return;
+        }
+        String bearer = "Bearer " + access;
+
+        ApiClient.get().getActiveReservation(bearer).enqueue(new retrofit2.Callback<ReservationResponse>() {
+            @Override public void onResponse(Call<ReservationResponse> call, Response<ReservationResponse> resp) {
+                boolean justReserved = getSharedPreferences("app", MODE_PRIVATE)
+                        .getBoolean("JUST_RESERVED", false);
+
+                if (justReserved) {
+                    Toast.makeText(MainActivity.this, "예약이 완료되었습니다.", Toast.LENGTH_SHORT).show();
+                    getSharedPreferences("app", MODE_PRIVATE)
+                            .edit()
+                            .remove("JUST_RESERVED")
+                            .apply();
+                    bottomBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+                }
+
+                if (resp.code() == 204) {
+                    hasActiveReservation = false;
+                    updateReservationSheetVisibility(true, false);
+                    enforceMainUiState();
+                    return;
+                }
+                if (resp.code() == 401) {
+                    TokenStore.clearAccess(getApplicationContext());
+                    hasActiveReservation = false;
+                    updateReservationSheetVisibility(false, false);
+                    enforceMainUiState();
+                    return;
+                }
+                if (resp.isSuccessful() && resp.body() != null) {
+                    ReservationResponse r = resp.body();
+                    hasActiveReservation = true;
+                    // 사이에 로그아웃됐는지 한 번 더 가드
+                    if (TextUtils.isEmpty(TokenStore.getAccess(getApplicationContext()))) {
+                        updateReservationSheetVisibility(false, false);
+                        return;
+                    }
+                    bindReservationDataToSheet(r);
+                    dismissArrivalsSheetIfShown();
+                    enforceMainUiState();
+                    updateReservationSheetVisibility(true, true);
+                } else {
+                    updateReservationSheetVisibility(true, false);
+                    hasActiveReservation = false;
+                    enforceMainUiState();
+                }
+            }
+            @Override public void onFailure(Call<ReservationResponse> call, Throwable t) {
+                // 네트워크 실패 시: 로그인 상태만 유지, 활성예약은 없다 가정
+                boolean loggedIn = !TextUtils.isEmpty(TokenStore.getAccess(getApplicationContext()));
+                hasActiveReservation = false;
+                updateReservationSheetVisibility(loggedIn, false);
+                enforceMainUiState();
+            }
+
+        });
+    }
+
+
+    //예약 바텀시트 표시/숨김 제어
+    private void updateReservationSheetVisibility(boolean isLoggedIn, boolean hasActiveReservation) {
+        if (!isLoggedIn || !hasActiveReservation) {
+            bottomBehavior.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_HIDDEN);
+            bottomSheet.setVisibility(View.GONE);
+            return;
+        }
+        if (bottomSheet.getVisibility() != View.VISIBLE) bottomSheet.setVisibility(View.VISIBLE);
+        if (bottomBehavior.getState() == com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_HIDDEN) {
+            bottomBehavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+        }
+    }
+
+    //예약 정보 바텀시트 데이터 바인딩
+    private void bindReservationDataToSheet(ReservationResponse r) {
+        currentReservationId = r.id;
+
+        String displayName = (r.routeName == null || r.routeName.isEmpty())
+                ? r.routeId : r.routeName;
+        if (tvRoute != null) tvRoute.setText(r.routeName); // 실제 노선명 있으면 교체
+        if (tvDir   != null) tvDir.setText(r.direction);
+        if (tvFrom  != null) tvFrom.setText(r.boardStopName);
+        if (tvTo    != null) tvTo.setText(r.destStopName);
+
+        if (btnCancel != null) {
+            btnCancel.setOnClickListener(v -> onClickCancel());
+        }
+    }
+
+    private void initBottomSheetViews() {
+        tvRoute  = bottomSheet.findViewById(R.id.tvBusNumber);
+        tvDir    = bottomSheet.findViewById(R.id.tvBusDirection);
+        tvFrom   = bottomSheet.findViewById(R.id.riging_station);
+        tvTo     = bottomSheet.findViewById(R.id.out_station);
+        btnCancel= bottomSheet.findViewById(R.id.btnReserve);
+    }
+
+    //예약 취소 기능
+    private void onClickCancel() {
+        String access = com.example.testmap.util.TokenStore.getAccess(getApplicationContext());
+        if (TextUtils.isEmpty(access)) {
+            Toast.makeText(this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (currentReservationId == null) {
+            Toast.makeText(this, "취소할 예약이 없습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        ApiClient.get().cancelReservationById("Bearer " + access, currentReservationId)
+                .enqueue(new retrofit2.Callback<CancelResult>() {
+                    @Override public void onResponse(Call<CancelResult> call, Response<CancelResult> res) {
+                        if (res.isSuccessful() && res.body()!=null) {
+                            CancelResult cr = res.body();
+                            switch (cr.result) {
+                                case "CANCELLED" -> {
+                                    Toast.makeText(MainActivity.this, "예약을 취소했어요.", Toast.LENGTH_SHORT).show();
+                                    updateReservationSheetVisibility(true, false); // 시트 숨김
+                                    currentReservationId = null;
+                                    fetchAndShowActiveReservation(); // 상태 재조회(선택)
+                                }
+                                case "ALREADY_CANCELLED" -> {
+                                    Toast.makeText(MainActivity.this, "이미 취소된 예약이에요.", Toast.LENGTH_SHORT).show();
+                                    updateReservationSheetVisibility(true, false);
+                                    currentReservationId = null;
+                                    fetchAndShowActiveReservation();
+                                }
+                                default -> {
+                                    Toast.makeText(MainActivity.this, "취소할 수 없는 상태입니다.", Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                        } else if (res.code()==401) {
+                            com.example.testmap.util.TokenStore.clearAccess(getApplicationContext());
+                            updateReservationSheetVisibility(false, false);
+                            Toast.makeText(MainActivity.this, "로그인이 만료되었습니다.", Toast.LENGTH_SHORT).show();
+                        } else if (res.code()==409) {
+                            // 서비스에서 409로 내려주는 경우가 있다면 여기에서 안내
+                            Toast.makeText(MainActivity.this, "취소할 예약이 없거나 취소할 수 없습니다.", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(MainActivity.this, "취소 실패 ("+res.code()+")", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                    @Override public void onFailure(Call<CancelResult> call, Throwable t) {
+                        Toast.makeText(MainActivity.this, "네트워크 오류로 취소 실패", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    //액티비티 정리
+    private void dismissArrivalsSheetIfShown() {
+        Fragment f = getSupportFragmentManager().findFragmentByTag(TAG_ARRIVALS_SHEET);
+        if (f instanceof androidx.fragment.app.DialogFragment df) {
+            df.dismissAllowingStateLoss();
+        }
+    }
+
+    private void enforceMainUiState() {
+        // "예약이 있으면 → 지도 + 예약시트만", 없으면 → 예약시트 숨김
+        if (hasActiveReservation) {
+            dismissArrivalsSheetIfShown();
+            updateReservationSheetVisibility(true, true);   // 보임(접힘/펼침은 네가 원한대로)
+        } else {
+            updateReservationSheetVisibility(false, false); // 완전 숨김
+            // 도착정보 시트는 사용자가 명시적으로 띄웠을 때만 보이게
+        }
+    }
+
+
 }

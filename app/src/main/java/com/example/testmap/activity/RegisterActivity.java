@@ -117,7 +117,7 @@ public class RegisterActivity extends AppCompatActivity {
         customDomainWrapper= findViewById(R.id.custom_domain_wrapper);
         editDomainCustom   = findViewById(R.id.editTextDomainCustom);
 
-        textPasswordHint   = findViewById(R.id.textPasswordHint);
+        //textPasswordHint   = findViewById(R.id.textPasswordHint);
         textEmailTimer     = findViewById(R.id.textEmailTimer);
 
         buttonSubmitRegister = findViewById(R.id.buttonSubmitRegister);

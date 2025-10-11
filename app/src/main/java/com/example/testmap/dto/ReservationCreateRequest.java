@@ -9,4 +9,5 @@ public class ReservationCreateRequest {
     public String destStopId;
     public String destStopName;
     public String destArsId;
+    public String routeName;
 }

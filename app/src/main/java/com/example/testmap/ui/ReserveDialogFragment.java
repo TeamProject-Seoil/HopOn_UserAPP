@@ -77,13 +77,6 @@ public class ReserveDialogFragment extends DialogFragment {
         btnReserve.setOnClickListener(v -> {
             boolean boardingAlarm = cbBoarding.isChecked();
             boolean dropOffAlarm = cbDropOff.isChecked();
-
-            Toast.makeText(getContext(),
-                    "예약됨: " + departureName + " → " + arrivalName +
-                            "\n승차 알림: " + boardingAlarm +
-                            "\n하차 알림: " + dropOffAlarm,
-                    Toast.LENGTH_SHORT).show();
-
             if (listener != null) {
                 listener.onReserveComplete(departureName, arrivalName, routeName, boardingAlarm, dropOffAlarm);
             }

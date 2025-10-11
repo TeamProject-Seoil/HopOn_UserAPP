@@ -1,5 +1,6 @@
 package com.example.testmap.activity;
 
+import android.app.ProgressDialog;
 import android.graphics.PorterDuff;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -17,11 +18,15 @@ import com.example.testmap.R;
 import com.example.testmap.adapter.BusRouteAdapter;
 import com.example.testmap.dto.BusLocationDto;
 import com.example.testmap.dto.BusRouteDto;
+import com.example.testmap.dto.ReservationCreateRequest;
+import com.example.testmap.dto.ReservationResponse;
 import com.example.testmap.dto.StationDto;
 import com.example.testmap.service.ApiClient;
 import com.example.testmap.ui.BusOverlayDecoration;
+import com.example.testmap.ui.LoginRequiredDialogFragment;
 import com.example.testmap.ui.ReserveDialogFragment;
 import com.example.testmap.util.BusColors;
+import com.example.testmap.util.TokenStore;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -203,23 +208,152 @@ public class BusRouteActivity extends AppCompatActivity {
         }
 
         // 정류장 클릭 이벤트 연결
-        adapter.setOnStopClickListener(stop -> {
-            String arrivalName = stop.stationNm;              // 도착역(클릭한 정류장)
-            String routeName   = routeNm;                     // 현재 버스 번호
-            String depName     = !TextUtils.isEmpty(departureName) ? departureName : "출발역 미지정";
 
-            // 예약 다이얼로그(출발=고정, 도착=클릭)
+// ====== [BusRouteActivity.onCreate()] 정류장 클릭 리스너 ======
+        adapter.setOnStopClickListener(arr -> {
+            // [여기부터 교체]
+
+            // 0) 출발역 유효성
+            if (TextUtils.isEmpty(departureArs)) {
+                Toast.makeText(this, "출발역이 지정되지 않았습니다.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // 1) 현재 방면에서 출발역 찾기
+            BusRouteDto dep = findByArsInCurrentDir(departureArs);
+            if (dep == null) {
+                // 현재 방면에 출발역이 없으면 반대 방면 전환 안내
+                String opp = oppositeDirOf(currentDir);
+                if (findByArsInDir(departureArs, opp) != null) {
+                    new AlertDialog.Builder(this)
+                            .setMessage("출발역이 현재 방면에 없습니다.\n" + opp + " 방면으로 전환할까요?")
+                            .setPositiveButton("전환", (d, w) -> {
+                                switchDirection(opp);
+                                Toast.makeText(this, "방면을 전환했어요. 다시 도착 정류장을 선택하세요.", Toast.LENGTH_SHORT).show();
+                            })
+                            .setNegativeButton("취소", null)
+                            .show();
+                } else {
+                    Toast.makeText(this, "출발역이 이 노선의 유효 정류장이 아닙니다.", Toast.LENGTH_SHORT).show();
+                }
+                return;
+            }
+
+            // 2) seq 비교로 진행방향 검증 (도착 > 출발 이어야 함)
+            int depSeq = safeInt(dep.seq, -1);
+            int arrSeq = safeInt(arr.seq, -1);
+            if (depSeq < 0 || arrSeq < 0) {
+                Toast.makeText(this, "정류장 순서 정보가 부족합니다.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (arrSeq <= depSeq) {
+                // 역방향 → 반대 방면 전환 제안
+                String opp = oppositeDirOf(currentDir);
+                BusRouteDto depInOpp = findByArsInDir(departureArs, opp);
+                BusRouteDto arrInOpp = findByArsInDir(arr.arsId, opp);
+                if (depInOpp != null && arrInOpp != null) {
+                    new AlertDialog.Builder(this)
+                            .setMessage("현재 방면 기준 역방향입니다.\n" + opp + " 방면으로 전환할까요?")
+                            .setPositiveButton("전환", (d, w) -> {
+                                switchDirection(opp);
+                                Toast.makeText(this, "방면을 전환했어요. 다시 도착 정류장을 선택하세요.", Toast.LENGTH_SHORT).show();
+                            })
+                            .setNegativeButton("취소", null)
+                            .show();
+                } else {
+                    Toast.makeText(this, "진행방향이 맞지 않습니다. 반대 방면을 확인하세요.", Toast.LENGTH_SHORT).show();
+                }
+                return;
+            }
+
+            // 3) 예약 다이얼로그 → 확인 시 API 호출
+            String routeName   = getIntent().getStringExtra(EXTRA_ROUTE_NAME);
+            String depName     = !TextUtils.isEmpty(departureName) ? departureName : dep.stationNm;
+            String arrivalName = arr.stationNm;
+
             ReserveDialogFragment dialog = ReserveDialogFragment.newInstance(
-                    depName,
-                    arrivalName,
-                    routeName
+                    depName, arrivalName, routeName
             );
-            dialog.setOnReserveListener((dep, arr, route, boardingAlarm, dropOffAlarm) -> {
-                Toast.makeText(this, "예약: " + dep + " → " + arr + " (" + route + ")", Toast.LENGTH_SHORT).show();
-                // TODO: 서버 예약 API 호출 시 depName/arrivalName/routeName 이용
+            dialog.setOnReserveListener((a, b, r, boardingAlarm, dropOffAlarm) -> {
+                // --- 요청 바디 구성 ---
+                ReservationCreateRequest req = new ReservationCreateRequest();
+                req.routeId       = currentBusRouteId;
+                req.direction     = currentDir; // 방면 라벨/코드
+                req.boardStopId   = dep.station;
+                req.boardStopName = dep.stationNm;
+                req.boardArsId    = dep.arsId;
+                req.destStopId    = arr.station;
+                req.destStopName  = arr.stationNm;
+                req.destArsId     = arr.arsId;
+                req.routeName     = arr.busRouteNm;
+
+                // --- 토큰 준비 ---
+                String access = com.example.testmap.util.TokenStore.getAccess(getApplicationContext());
+                String bearer = (access != null && !access.isEmpty()) ? ("Bearer " + access) : "";
+
+                // --- 로딩 표시 ---
+                ProgressDialog pd = new ProgressDialog(BusRouteActivity.this);
+                pd.setMessage("예약 중...");
+                pd.setCancelable(false);
+                pd.show();
+
+                // --- API 호출 ---
+                ApiClient.get().createReservation(bearer, req).enqueue(new Callback<ReservationResponse>() {
+                    @Override
+                    public void onResponse(Call<ReservationResponse> call, Response<ReservationResponse> resp) {
+                        pd.dismiss();
+                        if (resp.isSuccessful() && resp.body() != null) {
+                            ReservationResponse body = resp.body();
+                            // ✅ 예약 성공 시 플래그 저장
+                            getSharedPreferences("app", MODE_PRIVATE)
+                                    .edit()
+                                    .putBoolean("JUST_RESERVED", true)
+                                    .apply();
+
+                            new androidx.appcompat.app.AlertDialog.Builder(BusRouteActivity.this)
+                                    .setTitle("예약 완료")
+                                    .setMessage(
+                                            "예약번호: " + body.id + "\n" +
+                                                    "출발: " + body.boardStopName + "\n" +
+                                                    "도착: " + body.destStopName
+                                    )
+                                    .setPositiveButton("확인", null)
+                                    .show();
+                            finish();
+                        } else {
+                            int code = resp.code();
+
+                            // ✅ 로그인 만료 처리
+                            if (code == 401) {
+                                TokenStore.clearAccess(getApplicationContext());  // 저장된 토큰 초기화
+                                LoginRequiredDialogFragment.show(getSupportFragmentManager()); // 로그인 요청 팝업 표시
+                                return;
+                            }
+
+                            // ✅ 그 외 에러 코드 메시지 처리
+                            String msg =
+                                    (code == 409) ? "예약 불가(중복/정책 위반). 다른 조합을 선택하세요."
+                                            : (code == 422) ? "진행방향이 맞지 않습니다. 반대 방면을 확인하세요."
+                                            : "예약 실패: HTTP " + code;
+
+                            Toast.makeText(BusRouteActivity.this, msg, Toast.LENGTH_LONG).show();
+                        }
+
+                    }
+                    @Override
+                    public void onFailure(Call<ReservationResponse> call, Throwable t) {
+                        pd.dismiss();
+                        Toast.makeText(BusRouteActivity.this, "네트워크 오류: " + t.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                });
             });
             dialog.show(getSupportFragmentManager(), "reserve_dialog");
+
+            // [교체 끝]
         });
+
+
+
 
     }
 
@@ -252,8 +386,9 @@ public class BusRouteActivity extends AppCompatActivity {
                 tvRight.setText(dirRight + " 방면");
 
                 // 4) 기본 방면 선택 (인텐트로 온 값 우선)
-                String first = pickInitialDirection(defaultDir, focusStationId, focusSeq);
+                String first = pickInitialDirectionByDepartureOrFocus(defaultDir, departureArs, focusStationId, focusSeq);
                 switchDirection(first);
+
             }
 
             @Override
@@ -308,17 +443,13 @@ public class BusRouteActivity extends AppCompatActivity {
         if (dir == null) return;
         currentDir = dir;
 
-        // ▼▼▼ [추가] 현재 선택된 방면에 맞춰 탭 색상 동기화 ▼▼▼
-        if (dir.equals(dirLeft)) selectLeft();
-        else selectRight();
+        if (dir.equals(dirLeft)) selectLeft(); else selectRight();
 
         List<BusRouteDto> filtered = new ArrayList<>();
         for (BusRouteDto s : allStops) if (dir.equals(s.direction)) filtered.add(s);
 
         adapter.submit(filtered);
-
-        // ✅ 출발역 강조 고정: 출발 arsId를 어댑터에 알려주기
-        adapter.setDepartureArsId(departureArs);
+        adapter.setDepartureArsId(departureArs); // 출발역 아이콘/볼드 강조는 유지
 
         indexVisibleBySeq(filtered);
         currentDirectionStops.clear();
@@ -328,8 +459,20 @@ public class BusRouteActivity extends AppCompatActivity {
         lastNextSeqByVeh.clear();
         loadAndApplyBusLocations(currentBusRouteId);
 
+        // 출발역이 이 방면에 있으면 그 위치로 스크롤
+        if (!TextUtils.isEmpty(departureArs)) {
+            for (BusRouteDto s : filtered) {
+                if (departureArs.equals(s.arsId)) {
+                    Integer pos = adapter.findPosBySeq(safeInt(s.seq, -1));
+                    if (pos != null) smoothCenterTo(pos);
+                    return;
+                }
+            }
+        }
+        // 출발역이 없으면 기존 포커스 기준
         centerOnFocusIfAny(filtered);
     }
+
 
     //정류장을 중앙으로
     private void centerOnFocusIfAny(List<BusRouteDto> list) {
@@ -552,6 +695,57 @@ public class BusRouteActivity extends AppCompatActivity {
         endSeq = dirSeqMax;
         endStationId = stops.isEmpty() ? null : stops.get(stops.size()-1).station;
     }
+
+    //예약 헬퍼 메서드
+
+    @Nullable
+    private BusRouteDto findByArsInCurrentDir(@Nullable String arsId) {
+        if (arsId == null) return null;
+        for (BusRouteDto s : currentDirectionStops) {
+            if (arsId.equals(s.arsId)) return s;
+        }
+        return null;
+    }
+
+    @Nullable
+    private BusRouteDto findByArsInDir(@Nullable String arsId, @Nullable String dir) {
+        if (arsId == null || dir == null) return null;
+        for (BusRouteDto s : allStops) {
+            if (dir.equals(s.direction) && arsId.equals(s.arsId)) return s;
+        }
+        return null;
+    }
+
+    @Nullable
+    private String oppositeDirOf(@Nullable String d) {
+        if (d == null) return null;
+        if (d.equals(dirLeft))  return dirRight;
+        if (d.equals(dirRight)) return dirLeft;
+        return null;
+    }
+
+    private String pickInitialDirectionByDepartureOrFocus(@Nullable String defaultDir,
+                                                          @Nullable String depArs,
+                                                          @Nullable String focusStationId,
+                                                          @Nullable Integer focusSeq) {
+        // 1) 출발 ARS가 특정 방면에만 있으면 그 방면 우선
+        if (!TextUtils.isEmpty(depArs)) {
+            boolean inLeft = false, inRight = false;
+            for (BusRouteDto s : allStops) {
+                if (depArs.equals(s.arsId)) {
+                    if (s.direction != null && s.direction.equals(dirLeft))  inLeft  = true;
+                    if (s.direction != null && s.direction.equals(dirRight)) inRight = true;
+                }
+            }
+            if (inLeft ^ inRight) return inLeft ? dirLeft : dirRight;
+        }
+        // 2) 기존 focus 우선
+        String byFocus = pickInitialDirection(defaultDir, focusStationId, focusSeq);
+        if (byFocus != null) return byFocus;
+        // 3) 기본값
+        return (dirLeft != null) ? dirLeft : defaultDir;
+    }
+
 }
 
 
