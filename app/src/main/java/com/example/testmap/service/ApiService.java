@@ -35,6 +35,14 @@ public interface ApiService {
     @GET("/api/busStopList")
     Call<List<BusRouteDto>> getBusRoute(@Query("busRouteId") String busRouteId);
 
+    //db 기반 주변 정류장 조회
+    @GET("api/stations/nearby")
+    Call<List<StationDto>> getNearbyStations(
+            @Query("lon") double longitude,
+            @Query("lat") double latitude,
+            @Query("radius") int radius
+    );
+
     // ====== 인증 관련 DTO ======
     class AuthRequest {
         public String userid;
