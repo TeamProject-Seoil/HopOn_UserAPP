@@ -78,13 +78,12 @@
         <TextView
             android:id="@+id/direction_left"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="50dp"
             android:layout_weight="1"
             android:background="@color/white"
+            android:gravity="center"
             android:text="(왼쪽 방면)"
             android:textColor="#000000"
-            android:gravity="center"
-            android:padding="12dp"
             android:textStyle="bold" />
 
         <TextView
