@@ -3,252 +3,271 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
+    android:layout_width="280dp"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
+    android:background="#F8FAFF"
+    android:elevation="4dp"
     android:clickable="true"
     android:focusable="true">
 
-    <!-- 상단 파란색 헤더 -->
+    <!-- 상단 헤더 -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/header"
         android:layout_width="0dp"
-        android:layout_height="60dp"
-        android:layout_marginTop="28dp"
+        android:layout_height="84dp"
+        android:layout_marginTop="24dp"
         android:background="#4B93FF"
-        android:padding="12dp"
-        app:layout_constraintStart_toStartOf="parent"
+        android:elevation="6dp"
+        android:padding="16dp"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
         <ImageView
             android:id="@+id/back_icon"
             android:layout_width="24dp"
             android:layout_height="24dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="뒤로가기"
             android:src="@drawable/ic_back"
-            app:tint="#FFFFFF"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" />
+            app:tint="#FFFFFF" />
 
         <TextView
             android:id="@+id/title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Hop On"
+            android:text="메뉴"
             android:textColor="#FFFFFF"
-            android:textSize="30sp"
+            android:textSize="28sp"
             android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <com.airbnb.lottie.LottieAnimationView
+            android:id="@+id/bus_icon"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" />
-
-        <ImageView
-            android:id="@+id/bus_icon"
-            android:layout_width="37dp"
-            android:layout_height="36dp"
-            android:src="@drawable/vector"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@id/title"
-            app:layout_constraintBottom_toBottomOf="@id/title" />
+            app:lottie_autoPlay="true"
+            app:lottie_loop="true"
+            app:lottie_rawRes="@raw/bus_motion" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- 프로필/로그인 영역 -->
+    <!-- Lottie 애니메이션 영역 -->
+
+    <!-- 프로필 영역 -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/profile_section"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:padding="20dp"
-        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="24dp"
+        android:background="@drawable/bg_white_card"
+        android:padding="12dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/header">
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/header">
 
-        <!-- 로그인/회원가입 버튼 (비로그인 시 노출) -->
+        <!-- 로그인 / 회원가입 버튼 -->
         <Button
             android:id="@+id/login_button"
             android:layout_width="0dp"
             android:layout_height="48dp"
+            android:backgroundTint="#4B93FF"
             android:text="로그인"
             android:textColor="#FFFFFF"
             android:textSize="14sp"
             app:cornerRadius="8dp"
-            app:layout_constraintWidth_percent="0.45"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            android:backgroundTint="#4B93FF"/>
+            app:layout_constraintWidth_percent="0.45" />
 
         <Button
             android:id="@+id/register_button"
             android:layout_width="0dp"
             android:layout_height="48dp"
             android:layout_marginStart="8dp"
+            android:backgroundTint="#EAF1FF"
             android:text="회원가입"
-            android:textColor="#FFFFFF"
+            android:textColor="#4B93FF"
             android:textSize="14sp"
             app:cornerRadius="8dp"
-            app:layout_constraintWidth_percent="0.45"
-            app:layout_constraintStart_toEndOf="@id/login_button"
-            app:layout_constraintTop_toTopOf="@id/login_button"
             app:layout_constraintBottom_toBottomOf="@id/login_button"
             app:layout_constraintEnd_toEndOf="parent"
-            android:backgroundTint="#4B93FF"/>
+            app:layout_constraintStart_toEndOf="@id/login_button"
+            app:layout_constraintTop_toTopOf="@id/login_button"
+            app:layout_constraintWidth_percent="0.45" />
 
-        <!-- 프로필 패널 (로그인 시 노출) -->
+        <!-- 로그인 시 사용자 정보 -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/user_panel"
             android:layout_width="0dp"
             android:layout_height="64dp"
-            android:visibility="gone"
-            android:background="@drawable/edittext_outline"
+            android:background="@drawable/bg_white_card"
             android:padding="10dp"
-            app:layout_constraintStart_toStartOf="parent"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent">
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
 
             <ImageView
                 android:id="@+id/image_profile"
                 android:layout_width="44dp"
                 android:layout_height="44dp"
-                android:src="@drawable/ic_account_circle"
-                android:scaleType="centerCrop"
-                android:clipToOutline="true"
                 android:background="@drawable/circle_mask"
+                android:clipToOutline="true"
+                android:src="@drawable/ic_account_circle"
+                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"/>
+                app:layout_constraintTop_toTopOf="parent" />
 
             <TextView
                 android:id="@+id/text_user_name"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
+                android:layout_marginStart="12dp"
                 android:text="사용자"
-                android:textStyle="bold"
                 android:textSize="16sp"
-                app:layout_constraintStart_toEndOf="@id/image_profile"
-                app:layout_constraintTop_toTopOf="@id/image_profile"
+                android:textStyle="bold"
                 app:layout_constraintBottom_toBottomOf="@id/image_profile"
-                app:layout_constraintEnd_toStartOf="@id/btn_logout"/>
+                app:layout_constraintStart_toEndOf="@id/image_profile"
+                app:layout_constraintTop_toTopOf="@id/image_profile" />
 
             <Button
                 android:id="@+id/btn_logout"
-                android:layout_width="100dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:backgroundTint="#EAF1FF"
                 android:text="로그아웃"
-                android:textColor="#FFFFFF"
+                android:textColor="#4B93FF"
                 android:textSize="12sp"
                 app:cornerRadius="8dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
-                android:backgroundTint="#4B93FF"/>
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
         </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- 메뉴 항목 -->
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <LinearLayout
         android:id="@+id/menu_section"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="20dp"
-        android:paddingVertical="8dp"
+        android:layout_marginTop="12dp"
+        android:orientation="vertical"
+        android:background="@drawable/bg_white_card"
+        android:padding="16dp"
+        android:divider="@drawable/divider_line"
+        android:showDividers="middle"
+        app:layout_constraintTop_toBottomOf="@id/profile_section"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/profile_section">
+        app:layout_constraintEnd_toEndOf="parent">
 
         <!-- 설정 -->
-        <ImageView
-            android:id="@+id/icon_settings"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginTop="16dp"
-            android:src="@drawable/ic_settings"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <Button
-            android:id="@+id/btn_settings"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:background="@android:color/transparent"
-            android:text="설정"
-            android:textColor="#000000"
-            android:textSize="20sp"
-            app:layout_constraintStart_toEndOf="@id/icon_settings"
-            app:layout_constraintTop_toTopOf="@id/icon_settings"
-            app:layout_constraintBottom_toBottomOf="@id/icon_settings" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="?attr/selectableItemBackground"
+            android:paddingVertical="10dp">
+
+            <ImageView
+                android:id="@+id/icon_settings"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_settings"/>
+
+            <Button
+                android:id="@+id/btn_settings"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="설정"
+                android:textColor="#000000"
+                android:background="@android:color/transparent"
+                android:textSize="18sp"/>
+        </LinearLayout>
 
         <!-- 공지사항 -->
-        <ImageView
-            android:id="@+id/icon_notice"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginTop="25dp"
-            android:src="@drawable/ic_notice"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/icon_settings" />
-
-        <Button
-            android:id="@+id/btn_notice"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:background="@android:color/transparent"
-            android:text="공지사항"
-            android:textColor="#000000"
-            android:textSize="20sp"
-            app:layout_constraintStart_toEndOf="@id/icon_notice"
-            app:layout_constraintTop_toTopOf="@id/icon_notice"
-            app:layout_constraintBottom_toBottomOf="@id/icon_notice" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="?attr/selectableItemBackground"
+            android:paddingVertical="10dp">
+
+            <ImageView
+                android:id="@+id/icon_notice"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_notice"/>
+
+            <Button
+                android:id="@+id/btn_notice"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="공지사항"
+                android:textColor="#000000"
+                android:background="@android:color/transparent"
+                android:textSize="18sp"/>
+        </LinearLayout>
 
         <!-- 오픈소스 -->
-        <ImageView
-            android:id="@+id/icon_opensource"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginTop="25dp"
-            android:src="@drawable/ic_opensource"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/icon_notice" />
-
-        <Button
-            android:id="@+id/btn_opensource"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:background="@android:color/transparent"
-            android:text="오픈소스 활용정보"
-            android:textColor="#000000"
-            android:textSize="20sp"
-            app:layout_constraintStart_toEndOf="@id/icon_opensource"
-            app:layout_constraintTop_toTopOf="@id/icon_opensource"
-            app:layout_constraintBottom_toBottomOf="@id/icon_opensource" />
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="?attr/selectableItemBackground"
+            android:paddingVertical="10dp">
 
-    <!-- 하단 문의 영역 -->
+            <ImageView
+                android:id="@+id/icon_opensource"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_opensource"/>
+
+            <Button
+                android:id="@+id/btn_opensource"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="오픈소스 활용정보"
+                android:textColor="#000000"
+                android:background="@android:color/transparent"
+                android:textSize="18sp"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 문의 -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/contact_section"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginHorizontal="20dp"
-        android:layout_marginBottom="32dp"
+        android:layout_marginTop="16dp"
         android:padding="12dp"
+        app:layout_constraintTop_toBottomOf="@id/menu_section"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent">
+        app:layout_constraintEnd_toEndOf="parent">
 
         <ImageView
             android:id="@+id/icon_contact"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
             android:src="@drawable/ic_question"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="@id/text_contact" />
+            app:layout_constraintTop_toTopOf="parent" />
 
         <TextView
             android:id="@+id/text_contact"
