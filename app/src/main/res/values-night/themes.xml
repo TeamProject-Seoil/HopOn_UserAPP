@@ -3,5 +3,11 @@
     <style name="Base.Theme.Testmap" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your dark theme here. -->
         <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+        <item name="android:fontFamily">@font/bmjua</item>
     </style>
+    <style name="Theme.MyApp" parent="Theme.Material3.Light.NoActionBar">
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Material3.MaterialAlertDialog</item>
+    </style>
+
+    <style name="Theme.Testmap" parent="Base.Theme.Testmap" />
 </resources>

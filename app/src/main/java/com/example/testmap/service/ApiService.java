@@ -6,6 +6,7 @@ import com.example.testmap.dto.BusRouteDto;
 import com.example.testmap.dto.ReservationCreateRequest;
 import com.example.testmap.dto.ReservationResponse;
 import com.example.testmap.dto.StationDto;
+import com.example.testmap.model.CancelResult;
 
 import java.util.List;
 import java.util.Map;
@@ -218,6 +219,19 @@ public interface ApiService {
     Call<ReservationResponse> createReservation(
             @Header("Authorization") String bearer,
             @Body ReservationCreateRequest body
+    );
+
+    //======= 예약 조회 =======
+    @GET("/api/reservations/active")
+    Call<ReservationResponse> getActiveReservation(
+            @Header("Authorization") String bearer
+    );
+
+    //=========예약 취소=============
+    @DELETE("/api/reservations/{id}")
+    Call<CancelResult> cancelReservationById(
+            @Header("Authorization") String bearer,
+            @Path("id") Long reservationId
     );
 
 }

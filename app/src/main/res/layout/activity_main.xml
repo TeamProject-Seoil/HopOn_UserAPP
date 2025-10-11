@@ -41,6 +41,20 @@
             android:src="@drawable/ic_star"
             android:layout_gravity="top|start" />
 
+        <FrameLayout
+            android:id="@+id/bottom_sheet_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:clickable="true"
+            app:layout_behavior="com.example.testmap.util.CustomBottomSheetBehavior"
+            app:behavior_hideable="true"
+            app:behavior_peekHeight="0dp">
+
+            <include layout="@layout/reservation_bottomsheet" />
+
+        </FrameLayout>
+
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
     <!-- 사이드 메뉴 -->
