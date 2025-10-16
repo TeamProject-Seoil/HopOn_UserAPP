@@ -25,12 +25,18 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 
 import com.example.testmap.R;
+import com.example.testmap.adapter.RecentAdapter;
+import com.example.testmap.adapter.FavoriteAdapter;
 import com.example.testmap.dto.ReservationResponse;
 import com.example.testmap.dto.StationDto;
 import com.example.testmap.model.CancelResult;
+import com.example.testmap.model.FavoriteItem;
+import com.example.testmap.model.RecentItem;
 import com.example.testmap.service.ApiClient;
 import com.example.testmap.service.ApiService;
 import com.example.testmap.ui.ArrivalsBottomSheet;
@@ -110,6 +116,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private boolean hasActiveReservation = false; // 서버 조회 후 최신 상태 저장
 
+    //즐겨찾기 및 최근내역
+    private List<RecentItem> recentList = new ArrayList<>();
+    private List<FavoriteItem> favList = new ArrayList<>();
+    private RecentAdapter recentAdapter;
+    private FavoriteAdapter favoriteAdapter;
+
+    private TextView emptyText, recentEmptyText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -175,8 +188,111 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         // 메뉴 초기화
         MenuLayout();
 
+        //즐겨찾기 및 최근내역 연동
+        emptyText = findViewById(R.id.emptyText);
+        recentEmptyText = findViewById(R.id.recentEmptyText);
+
+        RecyclerView recentRecycler = findViewById(R.id.recent_recycler);
+        RecyclerView favRecycler = findViewById(R.id.fav_recycler);
+
+        recentAdapter = new RecentAdapter(recentList);
+        favoriteAdapter = new FavoriteAdapter(favList);
+
+        recentRecycler.setLayoutManager(new LinearLayoutManager(this));
+        favRecycler.setLayoutManager(new LinearLayoutManager(this));
+
+        recentRecycler.setAdapter(recentAdapter);
+        favRecycler.setAdapter(favoriteAdapter);
+
+
+        recentAdapter.notifyDataSetChanged();
+        favoriteAdapter.notifyDataSetChanged();
+
+        updateEmptyText(emptyText, recentEmptyText);
+
+
         initBottomSheetViews();
+
+        initFavoritesView();
     }
+    //버스 더미데이터 샘플
+    private void addDummyData() {
+        recentList.clear();
+        favList.clear();
+        for (int i = 1; i <= 3; i++) {
+            recentList.add(new RecentItem("최근 버스 " + i, "정류장 A" + i, "정류장 B" + i));
+            favList.add(new FavoriteItem("즐겨찾기 버스 " + i, "울마삼 → 사가정 " + i, "평일 운행 / 배차간격 10분"));
+        }
+        recentAdapter.notifyDataSetChanged();
+        favoriteAdapter.notifyDataSetChanged();
+        updateEmptyText(emptyText, recentEmptyText);
+    }
+
+    private void initFavoritesView() {
+        // Drawer 안의 즐겨찾기 레이아웃 내부 뷰들을 가져옴
+        RecyclerView favRecycler = layoutFavorites.findViewById(R.id.fav_recycler);
+        RecyclerView recentRecycler = layoutFavorites.findViewById(R.id.recent_recycler);
+        TextView emptyText = layoutFavorites.findViewById(R.id.emptyText);
+        TextView recentEmptyText = layoutFavorites.findViewById(R.id.recentEmptyText);
+        View clearAll = layoutFavorites.findViewById(R.id.clearAll);
+
+        // 어댑터 설정
+        recentAdapter = new RecentAdapter(recentList);
+        favoriteAdapter = new FavoriteAdapter(favList);
+
+        favRecycler.setLayoutManager(new LinearLayoutManager(this));
+        recentRecycler.setLayoutManager(new LinearLayoutManager(this));
+        favRecycler.setAdapter(favoriteAdapter);
+        recentRecycler.setAdapter(recentAdapter);
+
+        // 예시 데이터
+        for (int i = 1; i <= 3; i++) {
+            recentList.add(new RecentItem("버스 " + i, "정류장 A" + i, "정류장 B" + i));
+            favList.add(new FavoriteItem(
+                    "즐겨찾기 " + i,
+                    "사가정 방면",
+                    "배차간격 12분"
+            ));
+        }
+
+        recentAdapter.notifyDataSetChanged();
+        favoriteAdapter.notifyDataSetChanged();
+
+        // 빈 상태 표시 업데이트
+        updateEmptyText(emptyText, recentEmptyText);
+
+        // 클릭 이벤트 (최근 → 즐겨찾기)
+        recentAdapter.setOnItemClickListener(new RecentAdapter.OnItemClickListener() {
+            @Override
+            public void onItemClick(RecentItem item) {
+                // 클릭 시 특정 액션
+            }
+
+            @Override
+            public void onAddFavClick(RecentItem item) {
+                favList.add(new FavoriteItem(
+                        item.getBusNumber(),
+                        item.getStartStation() + " → " + item.getEndStation(), // busName 대체
+                        "최근 추가된 즐겨찾기" // busInfo 대체
+                ));
+                favoriteAdapter.notifyDataSetChanged();
+                updateEmptyText(emptyText, recentEmptyText);
+            }
+        });
+
+        // 전체삭제 버튼
+        clearAll.setOnClickListener(v -> {
+            favList.clear();
+            favoriteAdapter.notifyDataSetChanged();
+            updateEmptyText(emptyText, recentEmptyText);
+        });
+    }
+
+    private void updateEmptyText(TextView emptyText, TextView recentEmptyText) {
+        emptyText.setVisibility(favList.isEmpty() ? View.VISIBLE : View.GONE);
+        recentEmptyText.setVisibility(recentList.isEmpty() ? View.VISIBLE : View.GONE);
+    }
+
 
     /** 메뉴 버튼 영역 초기화 */
     private void MenuLayout() {
