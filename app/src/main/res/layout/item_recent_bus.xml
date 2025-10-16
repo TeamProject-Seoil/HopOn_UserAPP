@@ -1,0 +1,61 @@
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/bus_number_recent"
+            android:layout_width="64dp"
+            android:layout_height="48dp"
+            android:gravity="center"
+            android:background="@drawable/bg_bus_number"
+            android:text="302"
+            android:textColor="@android:color/white"
+            android:textStyle="bold"
+            android:textSize="20sp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:orientation="vertical"
+            android:layout_weight="1">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/start_station"
+                android:text="승차: 면목역"
+                android:textStyle="bold"
+                android:textColor="#333333"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/end_station"
+                android:text="하차: 고양시청"
+                android:textStyle="bold"
+                android:textColor="#333333"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/add_to_fav"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_star2"
+            android:contentDescription="즐겨찾기 추가"
+            app:tint="#999999" />
+    </LinearLayout>
+</androidx.cardview.widget.CardView>
