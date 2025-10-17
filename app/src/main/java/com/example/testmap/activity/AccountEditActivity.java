@@ -13,6 +13,7 @@ import android.text.TextWatcher;
 import android.widget.*;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 
 import com.example.testmap.R;
 import com.example.testmap.service.ApiClient;
@@ -40,7 +41,10 @@ public class AccountEditActivity extends AppCompatActivity {
     private Spinner emailDomainSpinner;
     private LinearLayout customDomainWrapper;
     private Button updateButton, btnSendCode, btnVerifyCode;
-    private TextView passwordRules, textTimer;
+    private TextView textTimer;
+
+    // ✅ 비밀번호 규칙/상태 뷰 (색상 토글)
+    private TextView pwRule1, pwRule2, pwRule3, pwMatchStatus;
 
     private final List<String> defaultDomains = new ArrayList<>();
     private ArrayAdapter<String> domainAdapter;
@@ -62,7 +66,13 @@ public class AccountEditActivity extends AppCompatActivity {
         bindViews();
         setupDomainSpinner();
         setupClicks();
-        setupPasswordWatcher();
+        setupPasswordWatcher(); // ✅ 비밀번호 정책/일치 표시
+
+        // 이름은 변경하지 않음
+        if (nameEdit != null) {
+            nameEdit.setEnabled(false);         // UI 비활성화
+            nameEdit.setFocusable(false);
+        }
 
         String at = TokenStore.getAccess(this);
         if (TextUtils.isEmpty(at)) {
@@ -90,8 +100,13 @@ public class AccountEditActivity extends AppCompatActivity {
         updateButton        = findViewById(R.id.btn_update);
         btnSendCode         = findViewById(R.id.btn_send_code);
         btnVerifyCode       = findViewById(R.id.btn_verify_code);
-       // passwordRules       = findViewById(R.id.password_rules);
         textTimer           = findViewById(R.id.text_timer);
+
+        // ✅ 규칙/상태 텍스트뷰
+        pwRule1        = findViewById(R.id.password_rules1);
+        pwRule2        = findViewById(R.id.password_rules2);
+        pwRule3        = findViewById(R.id.password_rules3);
+        pwMatchStatus  = findViewById(R.id.tv_pw_match_status); // XML 패치에 추가됨
     }
 
     private void setupDomainSpinner() {
@@ -242,26 +257,91 @@ public class AccountEditActivity extends AppCompatActivity {
         }.start();
     }
 
-    /** ================= 비밀번호 규칙 ================= */
+    /** ================= 비밀번호 규칙/일치 표시 ================= */
 
     private void setupPasswordWatcher() {
-        passwordEdit.addTextChangedListener(new TextWatcher() {
+        TextWatcher watcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override public void afterTextChanged(Editable s) { validatePasswordRules(s.toString()); }
-        });
+            @Override public void afterTextChanged(Editable s) { validatePasswords(); }
+        };
+        if (passwordEdit != null) passwordEdit.addTextChangedListener(watcher);
+        if (passwordConfirmEdit != null) passwordConfirmEdit.addTextChangedListener(watcher);
+
+        // 최초 1회 상태 반영
+        validatePasswords();
     }
 
-    private void validatePasswordRules(String pw) {
-        if (passwordRules == null) return;
-        boolean lenOk = pw.length() >= 10 && pw.length() <= 16;
-        boolean comboOk = pw.matches(".*[A-Za-z].*") && pw.matches(".*\\d.*");
-        boolean spaceOk = !pw.contains(" ");
-        if (lenOk && comboOk && spaceOk) {
-            passwordRules.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
-        } else {
-            passwordRules.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+    private void validatePasswords() {
+        String pw = safeTrim(passwordEdit);
+        String confirm = safeTrim(passwordConfirmEdit);
+
+        final int RED   = ContextCompat.getColor(this, android.R.color.holo_red_dark);
+        final int GREEN = ContextCompat.getColor(this, android.R.color.holo_green_dark);
+        final int GRAY  = ContextCompat.getColor(this, android.R.color.darker_gray);
+
+        // 규칙: 10~16자, 영문/숫자만 허용, 대/소/숫자 중 2종류 이상, 연속문자/키보드 시퀀스 금지
+        boolean lenOk = pw.length() >= 10 && pw.length() <= 16 && pw.matches("^[A-Za-z0-9]+$");
+        boolean mixOk = hasAtLeastTwoClasses(pw);
+        boolean seqOk = !(hasSequentialAlphaOrDigit(pw) || hasKeyboardSequence(pw));
+
+        if (pwRule1 != null) pwRule1.setTextColor(pw.isEmpty() ? GRAY : (lenOk ? GREEN : RED));
+        if (pwRule2 != null) pwRule2.setTextColor(pw.isEmpty() ? GRAY : (mixOk ? GREEN : RED));
+        if (pwRule3 != null) pwRule3.setTextColor(pw.isEmpty() ? GRAY : (seqOk ? GREEN : RED));
+
+        boolean bothFilled = !pw.isEmpty() && !confirm.isEmpty();
+        boolean match = bothFilled && pw.equals(confirm);
+        if (pwMatchStatus != null) {
+            if (!bothFilled) {
+                pwMatchStatus.setText(""); // 비움
+            } else if (match) {
+                pwMatchStatus.setText("일치합니다");
+                pwMatchStatus.setTextColor(GREEN);
+            } else {
+                pwMatchStatus.setText("일치하지 않습니다");
+                pwMatchStatus.setTextColor(RED);
+            }
         }
+    }
+
+    // ===== 비밀번호 정책 검증 헬퍼 =====
+    private boolean hasAtLeastTwoClasses(String s) {
+        boolean upper = s.chars().anyMatch(c -> c >= 'A' && c <= 'Z');
+        boolean lower = s.chars().anyMatch(c -> c >= 'a' && c <= 'z');
+        boolean digit = s.chars().anyMatch(c -> c >= '0' && c <= '9');
+        int classes = (upper?1:0) + (lower?1:0) + (digit?1:0);
+        return classes >= 2;
+    }
+    private boolean hasSequentialAlphaOrDigit(String s) {
+        if (s == null || s.length() < 3) return false;
+        for (int i = 0; i <= s.length() - 3; i++) {
+            char a = s.charAt(i), b = s.charAt(i+1), c = s.charAt(i+2);
+            if (Character.isDigit(a) && Character.isDigit(b) && Character.isDigit(c)) {
+                if ((b==a+1 && c==b+1) || (b==a-1 && c==b-1)) return true;
+            }
+            if (Character.isLetter(a) && Character.isLetter(b) && Character.isLetter(c)) {
+                int x = Character.toLowerCase(a), y = Character.toLowerCase(b), z = Character.toLowerCase(c);
+                if ((y==x+1 && z==y+1) || (y==x-1 && z==y-1)) return true;
+            }
+        }
+        return false;
+    }
+    private boolean hasKeyboardSequence(String s) {
+        if (s == null) return false;
+        String lower = s.toLowerCase();
+        String[] rows = new String[]{
+                "qwertyuiop","asdfghjkl","zxcvbnm","1234567890","0987654321"
+        };
+        for (String row : rows) {
+            for (int i = 0; i <= row.length() - 3; i++) {
+                if (lower.contains(row.substring(i, i+3))) return true;
+            }
+            String rev = new StringBuilder(row).reverse().toString();
+            for (int i = 0; i <= rev.length() - 3; i++) {
+                if (lower.contains(rev.substring(i, i+3))) return true;
+            }
+        }
+        return false;
     }
 
     /** ================= 서버와 통신: 내 정보 로드/업데이트 ================= */
@@ -350,17 +430,35 @@ public class AccountEditActivity extends AppCompatActivity {
     }
 
     private void onClickUpdate() {
-        String username = safeTrim(nameEdit);
+        // 이름은 변경하지 않음 → 서버로는 기존 me.username 전송
+        String username = (me != null) ? nonNull(me.username, "") : "";
+
         String tel      = safeTrim(phoneEdit);
         String email    = buildEmail();
 
-        if (TextUtils.isEmpty(username)) { toast("이름을 입력하세요"); return; }
+        if (TextUtils.isEmpty(username)) { toast("이름 정보를 확인할 수 없습니다."); return; }
         if (TextUtils.isEmpty(email)) { toast("이메일을 입력하세요"); return; }
         if (TextUtils.isEmpty(tel)) { toast("전화번호를 입력하세요"); return; }
 
+        // 이메일 인증 필수
         if (!TextUtils.equals(email, lastVerifiedEmail)) {
             toast("이메일 인증을 완료하세요.");
             return;
+        }
+
+        // 비밀번호 입력이 있다면 정책/일치 체크만 수행(현재 API에 비번 필드는 없음)
+        String pw = safeTrim(passwordEdit);
+        String confirm = safeTrim(passwordConfirmEdit);
+        if (!pw.isEmpty() || !confirm.isEmpty()) {
+            boolean lenOk = pw.length() >= 10 && pw.length() <= 16 && pw.matches("^[A-Za-z0-9]+$");
+            boolean mixOk = hasAtLeastTwoClasses(pw);
+            boolean seqOk = !(hasSequentialAlphaOrDigit(pw) || hasKeyboardSequence(pw));
+            boolean match = !pw.isEmpty() && pw.equals(confirm);
+            if (!(lenOk && mixOk && seqOk && match)) {
+                toast("비밀번호 조건을 만족하고 서로 일치해야 합니다.");
+                return;
+            }
+            // TODO: 비밀번호 변경이 필요하다면 서버 API에 맞게 필드 추가 필요
         }
 
         performProfileUpdate(username, email, tel, lastVerificationId);
@@ -382,7 +480,7 @@ public class AccountEditActivity extends AppCompatActivity {
         try {
             Gson gson = new Gson();
             UpdateData dataObj = new UpdateData();
-            dataObj.username = username;
+            dataObj.username = username; // ← 이름 변경하지 않지만 서버 요구 시 그대로 전달(읽기전용 취급)
             dataObj.email = email;
             dataObj.tel = tel;
             dataObj.removeProfileImage = removeProfileImage ? Boolean.TRUE : null;

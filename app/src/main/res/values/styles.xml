@@ -1,20 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
     <!-- 둥근 모서리 공통 -->
     <style name="MyButtonShape">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">16dp</item>
     </style>
 
-    <!-- Outlined -->
+    <!-- Outlined 버튼 -->
     <style name="MyOutlinedButton" parent="Widget.Material3.Button.OutlinedButton">
         <item name="shapeAppearance">@style/MyButtonShape</item>
         <item name="android:textColor">@color/blue</item>
     </style>
 
+    <!-- Filled 버튼 -->
     <style name="MyFilledButton" parent="Widget.Material3.Button">
         <item name="shapeAppearance">@style/MyButtonShape</item>
-        <item name="backgroundTint">@color/blue</item> <!-- 🔵 파란색 배경 -->
+        <item name="backgroundTint">@color/blue</item>
         <item name="android:textColor">@android:color/white</item>
     </style>
+
 </resources>

@@ -22,10 +22,11 @@ import com.example.testmap.service.ApiClient;
 import com.example.testmap.service.ApiService;
 import com.example.testmap.util.DeviceInfo;
 import com.example.testmap.util.TokenStore;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import org.json.JSONObject;
 
-import java.io.IOException;
 import java.util.Map;
 
 import okhttp3.ResponseBody;
@@ -40,6 +41,9 @@ public class SettingsActivity extends AppCompatActivity {
     private TextView textName, textPhone, textEmail;
     private ImageView imageProfile;
     private SwitchCompat switchNotice;
+
+    // me()에서 받은 userid (비밀번호 재확인용)
+    private String sessionUserId = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,35 +63,25 @@ public class SettingsActivity extends AppCompatActivity {
 
         btnBack.setOnClickListener(v -> finish());
         sectionLogin.setOnClickListener(v -> startActivity(new Intent(this, LoginActivity.class)));
-        btnEditAccount.setOnClickListener(v -> startActivity(new Intent(this, AccountEditActivity.class)));
+
+        // 정보수정 → 비밀번호 먼저 확인
+        btnEditAccount.setOnClickListener(v -> showVerifyPasswordDialog());
 
         switchNotice.setOnCheckedChangeListener((b, checked) ->
                 Toast.makeText(this, "공지사항 알림: " + (checked ? "ON" : "OFF"), Toast.LENGTH_SHORT).show()
         );
-        // 팝업 띄울 > 버튼들 클릭 이벤트
-        findViewById(R.id.btn_bus_boarding).setOnClickListener(v -> {
-            showChoiceDialog("버스 승차 알림", new String[]{"알림 받지 않음", "1분 전", "3분 전", "5분 전"});
-        });
 
-        findViewById(R.id.btn_bus_alighting).setOnClickListener(v -> {
-            showChoiceDialog("버스 하차 알림", new String[]{"알림 받지 않음", "1정거장 전", "2정거장 전", "3정거장 전"});
-        });
+        findViewById(R.id.btn_bus_boarding).setOnClickListener(v ->
+                showChoiceDialog("버스 승차 알림", new String[]{"알림 받지 않음", "1분 전", "3분 전", "5분 전"}));
+        findViewById(R.id.btn_bus_alighting).setOnClickListener(v ->
+                showChoiceDialog("버스 하차 알림", new String[]{"알림 받지 않음", "1정거장 전", "2정거장 전", "3정거장 전"}));
+        findViewById(R.id.btn_auto_refresh).setOnClickListener(v ->
+                showChoiceDialog("자동 새로고침 주기", new String[]{"자동 새로 고침 없음", "15초", "30초", "45초"}));
+        findViewById(R.id.btn_arrival_display_criteria).setOnClickListener(v ->
+                showChoiceDialog("버스 도착정보 노출 기준", new String[]{"노선번호순", "도착시간순", "버스유형순"}));
+        findViewById(R.id.btn_arrival_text_color).setOnClickListener(v ->
+                showChoiceDialog("버스 도착정보 텍스트 색상", new String[]{"파랑", "초록", "빨강", "검정", "보라", "핑크"}));
 
-        findViewById(R.id.btn_auto_refresh).setOnClickListener(v -> {
-            showChoiceDialog("자동 새로고침 주기", new String[]{"자동 새로 고침 없음", "15초", "30초", "45초"});
-        });
-
-        findViewById(R.id.btn_arrival_display_criteria).setOnClickListener(v -> {
-            showChoiceDialog("버스 도착정보 노출 기준", new String[]{"노선번호순", "도착시간순", "버스유형순"});
-        });
-
-        findViewById(R.id.btn_arrival_text_color).setOnClickListener(v -> {
-            showChoiceDialog("버스 도착정보 텍스트 색상", new String[]{"파랑", "초록", "빨강", "검정", "보라", "핑크"});
-        });
-
-        findViewById(R.id.btn_app_inquiry).setOnClickListener(v -> {
-            showChoiceDialog("어플리케이션 문의", new String[]{"이메일 보내기", "전화하기", "자주 묻는 질문"});
-        });
         btnDeleteAccount.setOnClickListener(v -> showDeleteAccountDialog());
     }
 
@@ -113,23 +107,26 @@ public class SettingsActivity extends AppCompatActivity {
     }
 
     private void tryRefreshThenRender(String refreshToken) {
-        ApiClient.get().refresh(refreshToken, DeviceInfo.getClientType(), DeviceInfo.getDeviceId(this))
-                .enqueue(new Callback<ApiService.AuthResponse>() {
-                    @Override public void onResponse(Call<ApiService.AuthResponse> call, Response<ApiService.AuthResponse> res) {
-                        if (res.isSuccessful() && res.body() != null && !TextUtils.isEmpty(res.body().accessToken)) {
-                            TokenStore.saveAccess(SettingsActivity.this, res.body().accessToken);
-                            if (!TextUtils.isEmpty(res.body().refreshToken)) {
-                                TokenStore.saveRefresh(SettingsActivity.this, res.body().refreshToken);
-                            }
-                            callMeAndRender("Bearer " + res.body().accessToken);
-                        } else {
-                            showLoggedOut();
-                        }
+        ApiClient.get().refresh(
+                refreshToken,
+                DeviceInfo.getClientType(),
+                DeviceInfo.getDeviceId(this)
+        ).enqueue(new Callback<ApiService.AuthResponse>() {
+            @Override public void onResponse(Call<ApiService.AuthResponse> call, Response<ApiService.AuthResponse> res) {
+                if (res.isSuccessful() && res.body() != null && !TextUtils.isEmpty(res.body().accessToken)) {
+                    TokenStore.saveAccess(SettingsActivity.this, res.body().accessToken);
+                    if (!TextUtils.isEmpty(res.body().refreshToken)) {
+                        TokenStore.saveRefresh(SettingsActivity.this, res.body().refreshToken);
                     }
-                    @Override public void onFailure(Call<ApiService.AuthResponse> call, Throwable t) {
-                        showLoggedOut();
-                    }
-                });
+                    callMeAndRender("Bearer " + res.body().accessToken);
+                } else {
+                    showLoggedOut();
+                }
+            }
+            @Override public void onFailure(Call<ApiService.AuthResponse> call, Throwable t) {
+                showLoggedOut();
+            }
+        });
     }
 
     private void callMeAndRender(String bearer) {
@@ -153,6 +150,8 @@ public class SettingsActivity extends AppCompatActivity {
         viewLoggedIn.setVisibility(View.GONE);
         sectionLogin.setVisibility(View.VISIBLE);
         if (btnDeleteAccount != null) btnDeleteAccount.setVisibility(View.GONE);
+        sessionUserId = null;
+        if (btnEditAccount != null) btnEditAccount.setEnabled(false);
     }
 
     private void showLoggedIn(ApiService.UserResponse me, String bearer) {
@@ -162,6 +161,16 @@ public class SettingsActivity extends AppCompatActivity {
         textName.setText(!TextUtils.isEmpty(me.username) ? me.username : me.userid);
         textPhone.setText(me.tel != null ? me.tel : "");
         textEmail.setText(me.email != null ? me.email : "");
+
+        // userid 확보 및 가드
+        sessionUserId = me.userid;
+        if (TextUtils.isEmpty(sessionUserId)) {
+            // 안전장치: userid가 없으면 비번 확인 흐름을 막음
+            if (btnEditAccount != null) btnEditAccount.setEnabled(false);
+            Toast.makeText(this, "사용자 식별값(userid)을 확인할 수 없습니다. 다시 로그인해 주세요.", Toast.LENGTH_SHORT).show();
+        } else {
+            if (btnEditAccount != null) btnEditAccount.setEnabled(true);
+        }
 
         if (me.hasProfileImage) {
             loadProfileImage(bearer);
@@ -181,6 +190,94 @@ public class SettingsActivity extends AppCompatActivity {
         });
     }
 
+    // ===== 비밀번호 확인 다이얼로그 (커스텀 카드만 보이게) =====
+    private void showVerifyPasswordDialog() {
+        if (TextUtils.isEmpty(sessionUserId)) {
+            Toast.makeText(this, "세션 정보가 만료되었습니다. 다시 로그인해 주세요.", Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
+            return;
+        }
+
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_verify_password_center, null);
+        final TextInputLayout til = dialogView.findViewById(R.id.til_password);
+        final TextInputEditText et = dialogView.findViewById(R.id.et_password);
+        final View btnCancel = dialogView.findViewById(R.id.btn_cancel);
+        final View btnOk = dialogView.findViewById(R.id.btn_ok);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setCancelable(false)
+                .create();
+
+        // 배경 투명 처리 → 내부 MaterialCardView만 보임
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(
+                    new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+        }
+        dialog.show();
+
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        // ...생략(다이얼로그 구성 동일)
+
+        btnOk.setOnClickListener(v -> {
+            String pwd = et.getText() == null ? "" : et.getText().toString().trim();
+            if (pwd.isEmpty()) { til.setError("비밀번호를 입력하세요"); return; }
+            til.setError(null);
+            btnOk.setEnabled(false);
+            btnCancel.setEnabled(false);
+
+            // ✅ 서버가 기대하는 키로 보냄: currentPassword (+ userid는 보수적으로 포함)
+            java.util.HashMap<String, Object> body = new java.util.HashMap<>();
+            body.put("userid", sessionUserId);         // 일부 서버는 필요 없음. 있어도 무해
+            body.put("currentPassword", pwd);          // <-- 핵심: password → currentPassword 로 변경
+
+            ApiClient.get().verifyPwUser(body).enqueue(
+                    new retrofit2.Callback<java.util.Map<String, Object>>() {
+                        @Override public void onResponse(
+                                retrofit2.Call<java.util.Map<String, Object>> call,
+                                retrofit2.Response<java.util.Map<String, Object>> res
+                        ) {
+                            if (res.isSuccessful()) {
+                                dialog.dismiss();
+                                Intent i = new Intent(SettingsActivity.this, AccountEditActivity.class);
+                                i.putExtra("verified_pw", pwd);
+                                startActivity(i);
+                            } else {
+                                String msg = "인증 실패 (" + res.code() + ")";
+                                try {
+                                    okhttp3.ResponseBody eb = res.errorBody();
+                                    if (eb != null) {
+                                        String raw = eb.string();
+                                        org.json.JSONObject obj = new org.json.JSONObject(raw);
+                                        String reason = obj.optString("reason", "");
+                                        if ("BAD_CURRENT_PASSWORD".equals(reason)) {
+                                            msg = "비밀번호가 올바르지 않습니다";
+                                        } else if ("MISSING_FIELD".equals(reason)) {
+                                            msg = "요청 필드가 누락되었습니다.";
+                                        }
+                                    }
+                                } catch (Exception ignore) {}
+                                til.setError(msg);
+                                btnOk.setEnabled(true);
+                                btnCancel.setEnabled(true);
+                            }
+                        }
+                        @Override public void onFailure(
+                                retrofit2.Call<java.util.Map<String, Object>> call, Throwable t
+                        ) {
+                            til.setError("네트워크 오류: " + t.getMessage());
+                            btnOk.setEnabled(true);
+                            btnCancel.setEnabled(true);
+                        }
+                    }
+            );
+        });
+
+
+    }
+
     // ===== 회원 탈퇴 =====
     private void showDeleteAccountDialog() {
         final EditText et = new EditText(this);
@@ -193,7 +290,7 @@ public class SettingsActivity extends AppCompatActivity {
                 .setMessage("계정을 삭제하려면 현재 비밀번호를 입력하세요.\n이 작업은 되돌릴 수 없습니다.")
                 .setView(et)
                 .setNegativeButton("취소", (d, w) -> d.dismiss())
-                .setPositiveButton("탈퇴", null) // 클릭 리스너는 나중에 세팅해서 중복요청 방지
+                .setPositiveButton("탈퇴", null)
                 .create();
         dialog.show();
 
@@ -204,26 +301,14 @@ public class SettingsActivity extends AppCompatActivity {
                 return;
             }
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);
-            requestDeleteAccount(pw, new Runnable() {
-                @Override public void run() {
-                    // 실패/성공 이후 버튼 다시 활성화(다이얼로그가 닫히지 않은 경우)
-                    if (dialog.isShowing()) {
-                        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
-                    }
-                }
-            }, new Runnable() {
-                @Override public void run() {
-                    // 성공 시 다이얼로그 닫기
-                    if (dialog.isShowing()) dialog.dismiss();
-                }
+            requestDeleteAccount(pw, () -> {
+                if (dialog.isShowing()) dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
+            }, () -> {
+                if (dialog.isShowing()) dialog.dismiss();
             });
         });
     }
 
-    /**
-     * @param onFinally  네트워크 종료 후(성공/실패 모두) 호출
-     * @param onSuccess  성공 시 호출
-     */
     private void requestDeleteAccount(String currentPassword, Runnable onFinally, Runnable onSuccess) {
         String at = TokenStore.getAccess(this);
         if (TextUtils.isEmpty(at)) {
@@ -235,14 +320,12 @@ public class SettingsActivity extends AppCompatActivity {
         }
         String bearer = "Bearer " + at;
 
-        // 1차 시도
         ApiClient.get().deleteMe(bearer, new ApiService.DeleteAccountRequest(currentPassword))
                 .enqueue(new Callback<Map<String, Object>>() {
                     @Override public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> res) {
                         if (res.isSuccessful()) {
                             handleDeleteSuccess(onSuccess);
                         } else if (res.code() == 401) {
-                            // 액세스 만료 → 리프레시 후 한 번만 재시도
                             tryRefreshAndRetry(currentPassword, onFinally, onSuccess);
                         } else {
                             showDeleteErrorToast(res);
@@ -273,7 +356,6 @@ public class SettingsActivity extends AppCompatActivity {
                             if (!TextUtils.isEmpty(res.body().refreshToken)) {
                                 TokenStore.saveRefresh(SettingsActivity.this, res.body().refreshToken);
                             }
-                            // 재시도 (한 번만)
                             requestDeleteAccount(currentPassword, onFinally, onSuccess);
                         } else {
                             Toast.makeText(SettingsActivity.this, "세션이 만료되었습니다. 다시 로그인해주세요.", Toast.LENGTH_SHORT).show();
@@ -302,23 +384,19 @@ public class SettingsActivity extends AppCompatActivity {
     private void showDeleteErrorToast(Response<?> res) {
         String message = "삭제 실패";
         if (res.code() == 400) {
-            // 서버가 reason 담아주면 표시
             try {
-                ResponseBody eb = res.errorBody();
+                ResponseBody eb = res.errorBody(); // ✅ 불필요한 캐스팅 제거
                 if (eb != null) {
                     String raw = eb.string();
                     JSONObject obj = new JSONObject(raw);
                     String reason = obj.optString("reason", "");
-                    switch (reason) {
-                        case "BAD_CURRENT_PASSWORD":
-                            message = "비밀번호가 올바르지 않습니다.";
-                            break;
-                        default:
-                            // 추가 reason이 있다면 여기서 분기
-                            message = "요청을 처리할 수 없습니다.";
+                    if ("BAD_CURRENT_PASSWORD".equals(reason)) {
+                        message = "비밀번호가 올바르지 않습니다.";
+                    } else {
+                        message = "요청을 처리할 수 없습니다.";
                     }
                 }
-            } catch (Exception ignore) { /* 파싱 실패 시 기본 문구 */ }
+            } catch (Exception ignore) { /* 기본 문구 유지 */ }
         } else if (res.code() == 403) {
             message = "권한이 없습니다.";
         } else if (res.code() >= 500) {
@@ -326,6 +404,7 @@ public class SettingsActivity extends AppCompatActivity {
         }
         Toast.makeText(SettingsActivity.this, message, Toast.LENGTH_SHORT).show();
     }
+
     private void showChoiceDialog(String title, String[] options) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(title);

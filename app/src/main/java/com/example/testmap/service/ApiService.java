@@ -15,11 +15,23 @@ import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
-import retrofit2.http.*;
+import retrofit2.http.Body;
+import retrofit2.http.DELETE;
+import retrofit2.http.Field;
+import retrofit2.http.FormUrlEncoded;
+import retrofit2.http.GET;
+import retrofit2.http.Header;
+import retrofit2.http.HTTP;
+import retrofit2.http.Multipart;
+import retrofit2.http.PATCH;
+import retrofit2.http.POST;
+import retrofit2.http.Part;
+import retrofit2.http.Path;
+import retrofit2.http.Query;
 
 public interface ApiService {
 
-    // ====== 기존 버스 관련 ======
+    // ====== 버스/정류장 ======
     @GET("/api/nearstations")
     Call<List<StationDto>> getNearStations(
             @Query("x") double x,
@@ -36,15 +48,15 @@ public interface ApiService {
     @GET("/api/busStopList")
     Call<List<BusRouteDto>> getBusRoute(@Query("busRouteId") String busRouteId);
 
-    //db 기반 주변 정류장 조회
-    @GET("api/stations/nearby")
+    // DB 기반 주변 정류장 조회
+    @GET("/api/stations/nearby")
     Call<List<StationDto>> getNearbyStations(
             @Query("lon") double longitude,
             @Query("lat") double latitude,
             @Query("radius") int radius
     );
 
-    // ====== 인증 관련 DTO ======
+    // ====== 인증 DTO ======
     class AuthRequest {
         public String userid;
         public String password;
@@ -52,7 +64,10 @@ public interface ApiService {
         public String deviceId;
 
         public AuthRequest(String u, String p, String c, String d) {
-            userid = u; password = p; clientType = c; deviceId = d;
+            this.userid = u;
+            this.password = p;
+            this.clientType = c;
+            this.deviceId = d;
         }
     }
 
@@ -75,7 +90,7 @@ public interface ApiService {
         public boolean emailTaken;
     }
 
-    // ====== 인증 관련 API ======
+    // ====== 인증 API ======
     @POST("/auth/login")
     Call<AuthResponse> login(@Body AuthRequest body);
 
@@ -87,11 +102,12 @@ public interface ApiService {
             @Field("deviceId") String deviceId
     );
 
+    // ✅ 사용자앱용: 면허 사진 제거(프로필 파일만 선택적 업로드)
     @Multipart
     @POST("/auth/register")
     Call<RegisterResponse> register(
             @Part("data") RequestBody dataJson,
-            @Part MultipartBody.Part file
+            @Part MultipartBody.Part file // 프로필 이미지 없으면 null 전달
     );
 
     @GET("/auth/check")
@@ -110,7 +126,6 @@ public interface ApiService {
     class SendEmailCodeRequest {
         private String email;
         private String purpose;
-
         public SendEmailCodeRequest(String email, String purpose) {
             this.email = email;
             this.purpose = purpose;
@@ -122,7 +137,6 @@ public interface ApiService {
         private String email;
         private String purpose;
         private String code;
-
         public VerifyEmailCodeRequest(String verificationId, String email, String purpose, String code) {
             this.verificationId = verificationId;
             this.email = email;
@@ -131,7 +145,7 @@ public interface ApiService {
         }
     }
 
-    // ====== 아이디 / 비밀번호 찾기 ======
+    // ====== 아이디/비번 찾기 ======
     @POST("/auth/find-id-after-verify")
     Call<Map<String, Object>> findIdAfterVerify(@Body Map<String, Object> body);
 
@@ -141,15 +155,16 @@ public interface ApiService {
     @POST("/auth/verify-pw-user")
     Call<Map<String, Object>> verifyPwUser(@Body Map<String, Object> body);
 
-    // ====== 로그인 사용자 API ======
+    // ====== 로그인 사용자 ======
     @GET("/users/me")
     Call<UserResponse> me(@Header("Authorization") String bearer);
 
     @GET("/users/me/profile-image")
     Call<ResponseBody> meImage(@Header("Authorization") String bearer);
 
+    // 서버가 JSON(Map) 반환 → Map 유지
     @POST("/auth/logout")
-    Call<Void> logout(@Body LogoutRequest body);
+    Call<Map<String, Object>> logout(@Body LogoutRequest body);
 
     class UserResponse {
         public Long userNum;
@@ -159,14 +174,18 @@ public interface ApiService {
         public String tel;
         public String role;
         public boolean hasProfileImage;
-        // 서버에서 더 주는 필드가 있어도 무관 (없으면 무시됨)
+
+        // 추가 필드(있으면 사용, 없어도 무방)
+        public String company;
+        public String approvalStatus;
+        public Boolean hasDriverLicenseFile;
+        public String lastLoginAtIso;
     }
 
     class LogoutRequest {
         public String clientType;
         public String deviceId;
         public String refreshToken;
-
         public LogoutRequest(String clientType, String deviceId, String refreshToken) {
             this.clientType = clientType;
             this.deviceId = deviceId;
@@ -176,16 +195,16 @@ public interface ApiService {
 
     // ====== 개인정보 수정 ======
     @Multipart
-    @PATCH("users/me")
+    @PATCH("/users/me")
     Call<UserResponse> updateMe(
             @Header("Authorization") String bearer,
             @Part("data") RequestBody dataJson,
-            @Part MultipartBody.Part file
+            @Part MultipartBody.Part file // 선택
     );
 
     // ====== 비밀번호 변경 ======
-    @POST("users/me/password")
-    Call<ResponseBody> changePassword(
+    @POST("/users/me/password")
+    Call<Map<String, Object>> changePassword(
             @Header("Authorization") String bearer,
             @Body ChangePasswordRequest body
     );
@@ -193,7 +212,6 @@ public interface ApiService {
     class ChangePasswordRequest {
         public String currentPassword;
         public String newPassword;
-
         public ChangePasswordRequest(String c, String n) {
             this.currentPassword = c;
             this.newPassword = n;
@@ -201,7 +219,7 @@ public interface ApiService {
     }
 
     // ====== 회원 탈퇴 ======
-    @HTTP(method = "DELETE", path = "users/me", hasBody = true)
+    @HTTP(method = "DELETE", path = "/users/me", hasBody = true)
     Call<Map<String, Object>> deleteMe(
             @Header("Authorization") String bearer,
             @Body DeleteAccountRequest body
@@ -214,24 +232,21 @@ public interface ApiService {
         }
     }
 
-    // ====== 예약 관련 ======
+    // ====== 예약 ======
     @POST("/api/reservations")
     Call<ReservationResponse> createReservation(
             @Header("Authorization") String bearer,
             @Body ReservationCreateRequest body
     );
 
-    //======= 예약 조회 =======
     @GET("/api/reservations/active")
     Call<ReservationResponse> getActiveReservation(
             @Header("Authorization") String bearer
     );
 
-    //=========예약 취소=============
     @DELETE("/api/reservations/{id}")
     Call<CancelResult> cancelReservationById(
             @Header("Authorization") String bearer,
             @Path("id") Long reservationId
     );
-
 }

@@ -7,6 +7,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
 import android.widget.*;
+
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
@@ -39,14 +40,18 @@ public class FindAccountActivity extends AppCompatActivity {
     private String currentEmail = null;
     private String currentPurpose = null;
 
-    // 루트 (탭)
+    // 탭 컨테이너(루트)
     private View layoutFindId;
     private View layoutFindPw;
 
-    // 동적 오버레이
+    // 동적 컨테이너 & 오버레이들
     private FrameLayout frameContent;
-    private View idResultView;   // layout_find_id_result
-    private View pwResetView;    // layout_find_pw_result
+    private View idResultView;     // layout_find_id_result
+    private View pwResetView;      // layout_find_pw_result
+
+    // 현재 활성 루트(동적으로 inflate한 레이아웃)
+    private View idViewRoot;       // layout_find_id
+    private View pwViewRoot;       // layout_find_pw
 
     // 최근 성공한 사용자 정보
     private String lastFoundUserId;
@@ -58,12 +63,11 @@ public class FindAccountActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.find_id);
 
-        btnFindId = findViewById(R.id.btn_find_id);
-        btnFindPw = findViewById(R.id.btn_find_pw);
-        frameContent = findViewById(R.id.frame_content);
-
-        layoutFindId = findViewById(R.id.layout_find_id_root);
-        layoutFindPw = findViewById(R.id.layout_find_pw_root);
+        btnFindId     = findViewById(R.id.btn_find_id);
+        btnFindPw     = findViewById(R.id.btn_find_pw);
+        frameContent  = findViewById(R.id.frame_content);
+        layoutFindId  = findViewById(R.id.layout_find_id_root);
+        layoutFindPw  = findViewById(R.id.layout_find_pw_root);
 
         ImageButton backButton = findViewById(R.id.notice_back_button);
         backButton.setOnClickListener(v -> finish());
@@ -71,18 +75,15 @@ public class FindAccountActivity extends AppCompatActivity {
         // 탭 전환
         btnFindId.setOnClickListener(v -> {
             removeOverlays();
-            showFindId();
+            showFindId(); // 내부에서 inflate + setup
         });
         btnFindPw.setOnClickListener(v -> {
             removeOverlays();
-            showFindPw();
+            showFindPw(); // 내부에서 inflate + setup
         });
 
-        // 기본: 아이디 찾기
+        // 기본 탭
         showFindId();
-
-        setupFindIdForm();
-        setupFindPwForm();
     }
 
     private void removeOverlays() {
@@ -93,6 +94,15 @@ public class FindAccountActivity extends AppCompatActivity {
         if (pwResetView != null) {
             frameContent.removeView(pwResetView);
             pwResetView = null;
+        }
+        // 동적 루트도 정리
+        if (idViewRoot != null) {
+            frameContent.removeView(idViewRoot);
+            idViewRoot = null;
+        }
+        if (pwViewRoot != null) {
+            frameContent.removeView(pwViewRoot);
+            pwViewRoot = null;
         }
     }
 
@@ -107,20 +117,11 @@ public class FindAccountActivity extends AppCompatActivity {
         btnFindPw.setTextColor(ContextCompat.getColor(this, android.R.color.white));
 
         frameContent.removeAllViews();
-        View idView = View.inflate(this, R.layout.layout_find_id, frameContent);
-        // 🔹 layout_find_pw.xml 내부 뷰 연결
-        Button btnSendCode = idView.findViewById(R.id.btn_send_code);
-        LinearLayout layoutCodeSection = idView.findViewById(R.id.layout_code_section); // 인증코드 입력 부분
+        idViewRoot = getLayoutInflater().inflate(R.layout.layout_find_id, frameContent, false);
+        frameContent.addView(idViewRoot);
 
-        // 처음엔 안보이게 (XML에서 visibility="gone" 해놨을 가능성 있음)
-        layoutCodeSection.setVisibility(View.GONE);
-
-        // 인증요청 버튼 클릭 시 나타나게
-        btnSendCode.setOnClickListener(v -> {
-            layoutCodeSection.setVisibility(View.VISIBLE);
-            layoutCodeSection.setAlpha(0f);
-            layoutCodeSection.animate().alpha(1f).setDuration(300).start(); // 자연스러운 페이드인
-        });
+        // 뷰 설정
+        setupFindIdForm(idViewRoot);
     }
 
     /** 비밀번호 찾기 탭 표시 */
@@ -133,71 +134,36 @@ public class FindAccountActivity extends AppCompatActivity {
         btnFindId.setBackgroundColor(ContextCompat.getColor(this, R.color.mainblue));
         btnFindId.setTextColor(ContextCompat.getColor(this, android.R.color.white));
 
-        // 최근 아이디/이메일 채워넣기
-        if (lastFoundUserId != null) {
-            EditText etId = layoutFindPw.findViewById(R.id.et_id);
-            etId.setText(lastFoundUserId);
-        }
-        if (lastFoundEmail != null) {
-            int at = lastFoundEmail.indexOf('@');
-            if (at > 0) {
-                String id = lastFoundEmail.substring(0, at);
-                String domain = lastFoundEmail.substring(at + 1);
-
-                EditText etEmailId = layoutFindPw.findViewById(R.id.et_email_id);
-                Spinner spinner = layoutFindPw.findViewById(R.id.spinner_email_domain);
-                LinearLayout customWrapper = layoutFindPw.findViewById(R.id.custom_domain_wrapper);
-                EditText etDomainCustom = layoutFindPw.findViewById(R.id.et_email_domain_custom);
-
-                etEmailId.setText(id);
-                ArrayAdapter<String> ad = new ArrayAdapter<>(this,
-                        android.R.layout.simple_spinner_dropdown_item, defaultDomains);
-                spinner.setAdapter(ad);
-
-                int idx = defaultDomains.indexOf(domain);
-                if (idx >= 0) {
-                    // 기본 목록에 있는 도메인 → 스피너 사용
-                    spinner.setVisibility(View.VISIBLE);
-                    customWrapper.setVisibility(View.GONE);
-                    spinner.setSelection(idx);
-                } else {
-                    // 기본 목록에 없음 → 직접입력 모드
-                    spinner.setVisibility(View.GONE);
-                    customWrapper.setVisibility(View.VISIBLE);
-                    etDomainCustom.setText(domain);
-                }
-            }
-        }
         frameContent.removeAllViews();
-        View pwView = View.inflate(this, R.layout.layout_find_pw, frameContent);
+        pwViewRoot = getLayoutInflater().inflate(R.layout.layout_find_pw, frameContent, false);
+        frameContent.addView(pwViewRoot);
 
-        // 🔹 layout_find_pw.xml 내부 뷰 연결
-        Button btnSendCode = pwView.findViewById(R.id.btn_send_code);
-        LinearLayout layoutCodeSection = pwView.findViewById(R.id.layout_code_section); // 인증코드 입력 부분
-
-        // 처음엔 안보이게 (XML에서 visibility="gone" 해놨을 가능성 있음)
-        layoutCodeSection.setVisibility(View.GONE);
-
-        // 인증요청 버튼 클릭 시 나타나게
-        btnSendCode.setOnClickListener(v -> {
-            layoutCodeSection.setVisibility(View.VISIBLE);
-            layoutCodeSection.setAlpha(0f);
-            layoutCodeSection.animate().alpha(1f).setDuration(300).start(); // 자연스러운 페이드인
-        });
+        // 뷰 설정
+        setupFindPwForm(pwViewRoot);
+        prefillFindPwFromLast(pwViewRoot);
     }
 
-    /** 아이디 찾기 폼 */
-    private void setupFindIdForm() {
-        Spinner spinner = layoutFindId.findViewById(R.id.spinner_email_domain);
-        LinearLayout customWrapper = layoutFindId.findViewById(R.id.custom_domain_wrapper);
-        EditText etDomainCustom = layoutFindId.findViewById(R.id.et_email_domain_custom);
-        ImageButton btnBack = layoutFindId.findViewById(R.id.btn_back_to_spinner);
+    // parent 안에 child가 포함되어 있는지 확인
+    private boolean isDescendant(View parent, View child) {
+        if (parent == null || child == null) return false;
+        View p = child;
+        while (p.getParent() instanceof View) {
+            p = (View) p.getParent();
+            if (p == parent) return true;
+        }
+        return false;
+    }
 
-        // 스피너 어댑터
+    /** 아이디 찾기 폼(동적 루트 기준) */
+    private void setupFindIdForm(View root) {
+        Spinner spinner = root.findViewById(R.id.spinner_email_domain);
+        LinearLayout customWrapper = root.findViewById(R.id.custom_domain_wrapper);
+        EditText etDomainCustom = root.findViewById(R.id.et_email_domain_custom);
+        ImageButton btnBack = root.findViewById(R.id.btn_back_to_spinner);
+
         spinner.setAdapter(new ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_dropdown_item, defaultDomains));
 
-        // "직접 입력" 선택하면 스피너 숨기고 커스텀 입력 보이기
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 if ("직접 입력".equals(defaultDomains.get(position))) {
@@ -209,55 +175,51 @@ public class FindAccountActivity extends AppCompatActivity {
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
 
-        // X 버튼 → 스피너 복귀
         btnBack.setOnClickListener(v -> {
             customWrapper.setVisibility(View.GONE);
             spinner.setVisibility(View.VISIBLE);
             spinner.setSelection(0);
         });
 
-        EditText etName = layoutFindId.findViewById(R.id.et_name);
-        EditText etEmailId = layoutFindId.findViewById(R.id.et_email_id);
-        EditText etCode = layoutFindId.findViewById(R.id.code_input);
-        Button btnSendCode = layoutFindId.findViewById(R.id.btn_send_code);
-        Button btnCheckCode = layoutFindId.findViewById(R.id.check_code);
-        Button btnFindIdResult = layoutFindId.findViewById(R.id.btn_find_id_result);
-        TextView textTimer = layoutFindId.findViewById(R.id.text_timer);
+        EditText etName       = root.findViewById(R.id.et_name);
+        EditText etEmailId    = root.findViewById(R.id.et_email_id);
+        EditText etCode       = root.findViewById(R.id.code_input);
+        Button btnSendCode    = root.findViewById(R.id.btn_send_code);
+        Button btnCheckCode   = root.findViewById(R.id.check_code);
+        Button btnFindIdResult= root.findViewById(R.id.btn_find_id_result);
+        TextView textTimer    = root.findViewById(R.id.text_timer);
+        LinearLayout layoutCodeSection = root.findViewById(R.id.layout_code_section);
 
         btnFindIdResult.setEnabled(false);
 
-        // 인증번호 발송
-        btnSendCode.setOnClickListener(v -> {
-            String name = etName.getText().toString().trim();
-            String emailId = etEmailId.getText().toString().trim();
+        // ── [표시/숨김] 버튼이 섹션 '안/밖' 어디에 있든 동작하도록 처리 ──
+        if (isDescendant(layoutCodeSection, btnSendCode)) {
+            // 버튼이 섹션 안에 있을 때: 섹션은 보이되 입력/확인/타이머만 먼저 숨김
+            if (etCode != null) etCode.setVisibility(View.GONE);
+            if (btnCheckCode != null) btnCheckCode.setVisibility(View.GONE);
+            if (textTimer != null) textTimer.setVisibility(View.GONE);
 
-            // 현재 보이는 위젯 기준으로 도메인 결정
-            String domain = (customWrapper.getVisibility() == View.VISIBLE)
-                    ? etDomainCustom.getText().toString().trim()
-                    : spinner.getSelectedItem().toString();
-
-            if (name.isEmpty() || emailId.isEmpty() || domain.isEmpty()) {
-                toast("이름과 이메일을 입력하세요");
-                return;
-            }
-            currentEmail = emailId + "@" + domain;
-            currentPurpose = "FIND_ID";
-
-            ApiService.SendEmailCodeRequest req =
-                    new ApiService.SendEmailCodeRequest(currentEmail, currentPurpose);
-            ApiClient.get().sendEmail(req).enqueue(new Callback<Map<String,Object>>() {
-                @Override public void onResponse(Call<Map<String,Object>> call, Response<Map<String,Object>> res) {
-                    if (res.isSuccessful() && res.body() != null) {
-                        verificationId = String.valueOf(res.body().get("verificationId"));
-                        startTimer(textTimer, 10 * 60);
-                        toast("인증코드를 " + currentEmail + " 로 전송했습니다.");
-                    } else {
-                        toast("전송 실패(" + res.code() + ")");
-                    }
-                }
-                @Override public void onFailure(Call<Map<String,Object>> call, Throwable t) { toast("네트워크 오류"); }
+            btnSendCode.setOnClickListener(v -> {
+                // 전송 클릭 시 입력/확인/타이머 나타나기(페이드)
+                if (etCode != null) { etCode.setVisibility(View.VISIBLE); etCode.setAlpha(0f); etCode.animate().alpha(1f).setDuration(200).start(); }
+                if (btnCheckCode != null) { btnCheckCode.setVisibility(View.VISIBLE); btnCheckCode.setAlpha(0f); btnCheckCode.animate().alpha(1f).setDuration(200).start(); }
+                if (textTimer != null) { textTimer.setVisibility(View.VISIBLE); textTimer.setAlpha(0f); textTimer.animate().alpha(1f).setDuration(200).start(); }
+                // 이어서 인증코드 발송 API
+                sendIdCode(etName, etEmailId, customWrapper, etDomainCustom, spinner, textTimer);
             });
-        });
+
+        } else {
+            // 버튼이 섹션 밖: 섹션 전체를 처음엔 GONE, 전송 시 섹션을 보이게
+            if (layoutCodeSection != null) layoutCodeSection.setVisibility(View.GONE);
+            btnSendCode.setOnClickListener(v -> {
+                if (layoutCodeSection != null) {
+                    layoutCodeSection.setVisibility(View.VISIBLE);
+                    layoutCodeSection.setAlpha(0f);
+                    layoutCodeSection.animate().alpha(1f).setDuration(300).start();
+                }
+                sendIdCode(etName, etEmailId, customWrapper, etDomainCustom, spinner, textTimer);
+            });
+        }
 
         // 인증코드 확인
         btnCheckCode.setOnClickListener(v -> {
@@ -267,8 +229,8 @@ public class FindAccountActivity extends AppCompatActivity {
 
             ApiService.VerifyEmailCodeRequest req =
                     new ApiService.VerifyEmailCodeRequest(verificationId, currentEmail, currentPurpose, code);
-            ApiClient.get().verifyEmail(req).enqueue(new Callback<Map<String,Object>>() {
-                @Override public void onResponse(Call<Map<String,Object>> call, Response<Map<String,Object>> res) {
+            ApiClient.get().verifyEmail(req).enqueue(new Callback<Map<String, Object>>() {
+                @Override public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> res) {
                     if (res.isSuccessful() && res.body() != null) {
                         btnFindIdResult.setEnabled(true);
                         toast("인증 성공!");
@@ -276,7 +238,9 @@ public class FindAccountActivity extends AppCompatActivity {
                         toast("인증 실패!");
                     }
                 }
-                @Override public void onFailure(Call<Map<String,Object>> call, Throwable t) { toast("네트워크 오류"); }
+                @Override public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                    toast("네트워크 오류");
+                }
             });
         });
 
@@ -293,15 +257,13 @@ public class FindAccountActivity extends AppCompatActivity {
             body.put("email", currentEmail);
             body.put("verificationId", verificationId);
 
-            ApiClient.get().findIdAfterVerify(body).enqueue(new Callback<Map<String,Object>>() {
-                @Override public void onResponse(Call<Map<String,Object>> call, Response<Map<String,Object>> res) {
+            ApiClient.get().findIdAfterVerify(body).enqueue(new Callback<Map<String, Object>>() {
+                @Override public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> res) {
                     if (res.isSuccessful() && res.body() != null && Boolean.TRUE.equals(res.body().get("ok"))) {
-                        // 결과 저장
                         lastFoundUserId = (String) res.body().get("userid");
-                        lastFoundName = name;
-                        lastFoundEmail = currentEmail;
+                        lastFoundName   = name;
+                        lastFoundEmail  = currentEmail;
 
-                        // 결과 오버레이 표시
                         layoutFindId.setVisibility(View.GONE);
                         idResultView = getLayoutInflater().inflate(R.layout.layout_find_id_result, frameContent, false);
 
@@ -312,9 +274,8 @@ public class FindAccountActivity extends AppCompatActivity {
                         idResultView.findViewById(R.id.btn_find_pw).setOnClickListener(view -> {
                             removeOverlays();
                             showFindPw();
-                            prefillFindPwFromLast();
+                            prefillFindPwFromLast(pwViewRoot);
                         });
-
                         idResultView.findViewById(R.id.btn_go_login).setOnClickListener(view -> {
                             startActivity(new Intent(FindAccountActivity.this, LoginActivity.class));
                             finish();
@@ -325,16 +286,54 @@ public class FindAccountActivity extends AppCompatActivity {
                         toast("회원 정보가 일치하지 않습니다.");
                     }
                 }
-                @Override public void onFailure(Call<Map<String,Object>> call, Throwable t) { toast("네트워크 오류"); }
+                @Override public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                    toast("네트워크 오류");
+                }
             });
         });
     }
 
-    /** 이전 결과로 비번 찾기 입력 채우기 */
-    private void prefillFindPwFromLast() {
+    /** 인증코드 발송 (아이디 찾기) */
+    private void sendIdCode(EditText etName, EditText etEmailId, LinearLayout customWrapper,
+                            EditText etDomainCustom, Spinner spinner, TextView textTimer) {
+        String name    = etName.getText().toString().trim();
+        String emailId = etEmailId.getText().toString().trim();
+        String domain  = (customWrapper.getVisibility() == View.VISIBLE)
+                ? etDomainCustom.getText().toString().trim()
+                : spinner.getSelectedItem().toString();
+
+        if (name.isEmpty() || emailId.isEmpty() || domain.isEmpty()) {
+            toast("이름과 이메일을 입력하세요");
+            return;
+        }
+        currentEmail   = emailId + "@" + domain;
+        currentPurpose = "FIND_ID";
+
+        ApiService.SendEmailCodeRequest req =
+                new ApiService.SendEmailCodeRequest(currentEmail, currentPurpose);
+        ApiClient.get().sendEmail(req).enqueue(new Callback<Map<String, Object>>() {
+            @Override public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> res) {
+                if (res.isSuccessful() && res.body() != null) {
+                    verificationId = String.valueOf(res.body().get("verificationId"));
+                    startTimer(textTimer, 10 * 60);
+                    toast("인증코드를 " + currentEmail + " 로 전송했습니다.");
+                } else {
+                    toast("전송 실패(" + res.code() + ")");
+                }
+            }
+            @Override public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                toast("네트워크 오류");
+            }
+        });
+    }
+
+    /** 이전 결과로 비번 찾기 입력 채우기 (동적 루트 기준) */
+    private void prefillFindPwFromLast(View root) {
+        if (root == null) return;
+
         if (lastFoundUserId != null) {
-            EditText etId = layoutFindPw.findViewById(R.id.et_id);
-            etId.setText(lastFoundUserId);
+            EditText etId = root.findViewById(R.id.et_id);
+            if (etId != null) etId.setText(lastFoundUserId);
         }
         if (lastFoundEmail != null) {
             int at = lastFoundEmail.indexOf('@');
@@ -342,36 +341,38 @@ public class FindAccountActivity extends AppCompatActivity {
                 String id = lastFoundEmail.substring(0, at);
                 String domain = lastFoundEmail.substring(at + 1);
 
-                EditText etEmailId = layoutFindPw.findViewById(R.id.et_email_id);
-                Spinner spinner = layoutFindPw.findViewById(R.id.spinner_email_domain);
-                LinearLayout customWrapper = layoutFindPw.findViewById(R.id.custom_domain_wrapper);
-                EditText etDomainCustom = layoutFindPw.findViewById(R.id.et_email_domain_custom);
+                EditText etEmailId = root.findViewById(R.id.et_email_id);
+                Spinner spinner = root.findViewById(R.id.spinner_email_domain);
+                LinearLayout customWrapper = root.findViewById(R.id.custom_domain_wrapper);
+                EditText etDomainCustom = root.findViewById(R.id.et_email_domain_custom);
 
-                etEmailId.setText(id);
-                ArrayAdapter<String> ad = new ArrayAdapter<>(this,
-                        android.R.layout.simple_spinner_dropdown_item, defaultDomains);
-                spinner.setAdapter(ad);
+                if (etEmailId != null) etEmailId.setText(id);
+                if (spinner != null) {
+                    ArrayAdapter<String> ad = new ArrayAdapter<>(this,
+                            android.R.layout.simple_spinner_dropdown_item, defaultDomains);
+                    spinner.setAdapter(ad);
 
-                int idx = defaultDomains.indexOf(domain);
-                if (idx >= 0) {
-                    spinner.setVisibility(View.VISIBLE);
-                    customWrapper.setVisibility(View.GONE);
-                    spinner.setSelection(idx);
-                } else {
-                    spinner.setVisibility(View.GONE);
-                    customWrapper.setVisibility(View.VISIBLE);
-                    etDomainCustom.setText(domain);
+                    int idx = defaultDomains.indexOf(domain);
+                    if (idx >= 0) {
+                        spinner.setVisibility(View.VISIBLE);
+                        if (customWrapper != null) customWrapper.setVisibility(View.GONE);
+                        spinner.setSelection(idx);
+                    } else {
+                        spinner.setVisibility(View.GONE);
+                        if (customWrapper != null) customWrapper.setVisibility(View.VISIBLE);
+                        if (etDomainCustom != null) etDomainCustom.setText(domain);
+                    }
                 }
             }
         }
     }
 
-    /** 비밀번호 찾기 폼 */
-    private void setupFindPwForm() {
-        Spinner spinner = layoutFindPw.findViewById(R.id.spinner_email_domain);
-        LinearLayout customWrapper = layoutFindPw.findViewById(R.id.custom_domain_wrapper);
-        EditText etDomainCustom = layoutFindPw.findViewById(R.id.et_email_domain_custom);
-        ImageButton btnBack = layoutFindPw.findViewById(R.id.btn_back_to_spinner);
+    /** 비밀번호 찾기 폼(동적 루트 기준) */
+    private void setupFindPwForm(View root) {
+        Spinner spinner = root.findViewById(R.id.spinner_email_domain);
+        LinearLayout customWrapper = root.findViewById(R.id.custom_domain_wrapper);
+        EditText etDomainCustom = root.findViewById(R.id.et_email_domain_custom);
+        ImageButton btnBack = root.findViewById(R.id.btn_back_to_spinner);
 
         spinner.setAdapter(new ArrayAdapter<>(this,
                 android.R.layout.simple_spinner_dropdown_item, defaultDomains));
@@ -393,46 +394,41 @@ public class FindAccountActivity extends AppCompatActivity {
             spinner.setSelection(0);
         });
 
-        EditText etId = layoutFindPw.findViewById(R.id.et_id);
-        EditText etEmailId = layoutFindPw.findViewById(R.id.et_email_id);
-        EditText etCode = layoutFindPw.findViewById(R.id.code_input);
-        Button btnSendCode = layoutFindPw.findViewById(R.id.btn_send_code);
-        Button btnCheckCode = layoutFindPw.findViewById(R.id.check_code);
-        Button btnFindPwNext = layoutFindPw.findViewById(R.id.btn_find_pw_next);
-        TextView textTimer = layoutFindPw.findViewById(R.id.text_timer);
+        EditText etId         = root.findViewById(R.id.et_id);
+        EditText etEmailId    = root.findViewById(R.id.et_email_id);
+        EditText etCode       = root.findViewById(R.id.code_input);
+        Button btnSendCode    = root.findViewById(R.id.btn_send_code);
+        Button btnCheckCode   = root.findViewById(R.id.check_code);
+        Button btnFindPwNext  = root.findViewById(R.id.btn_find_pw_next);
+        TextView textTimer    = root.findViewById(R.id.text_timer);
+        LinearLayout layoutCodeSection = root.findViewById(R.id.layout_code_section);
 
         btnFindPwNext.setEnabled(false);
 
-        // 인증번호 발송
-        btnSendCode.setOnClickListener(v -> {
-            String userId = etId.getText().toString().trim();
-            String emailId = etEmailId.getText().toString().trim();
-            String domain = (customWrapper.getVisibility() == View.VISIBLE)
-                    ? etDomainCustom.getText().toString().trim()
-                    : spinner.getSelectedItem().toString();
+        // ── [표시/숨김] 버튼이 섹션 ‘안/밖’ 어디든 동작 ──
+        if (isDescendant(layoutCodeSection, btnSendCode)) {
+            if (etCode != null) etCode.setVisibility(View.GONE);
+            if (btnCheckCode != null) btnCheckCode.setVisibility(View.GONE);
+            if (textTimer != null) textTimer.setVisibility(View.GONE);
 
-            if (userId.isEmpty() || emailId.isEmpty() || domain.isEmpty()) {
-                toast("아이디와 이메일을 입력하세요");
-                return;
-            }
-            currentEmail = emailId + "@" + domain;
-            currentPurpose = "FIND_PW";
-
-            ApiService.SendEmailCodeRequest req =
-                    new ApiService.SendEmailCodeRequest(currentEmail, currentPurpose);
-            ApiClient.get().sendEmail(req).enqueue(new Callback<Map<String,Object>>() {
-                @Override public void onResponse(Call<Map<String,Object>> call, Response<Map<String,Object>> res) {
-                    if (res.isSuccessful() && res.body() != null) {
-                        verificationId = String.valueOf(res.body().get("verificationId"));
-                        startTimer(textTimer, 10 * 60);
-                        toast("인증코드를 " + currentEmail + " 로 전송했습니다.");
-                    } else {
-                        toast("전송 실패(" + res.code() + ")");
-                    }
-                }
-                @Override public void onFailure(Call<Map<String,Object>> call, Throwable t) { toast("네트워크 오류"); }
+            btnSendCode.setOnClickListener(v -> {
+                if (etCode != null) { etCode.setVisibility(View.VISIBLE); etCode.setAlpha(0f); etCode.animate().alpha(1f).setDuration(200).start(); }
+                if (btnCheckCode != null) { btnCheckCode.setVisibility(View.VISIBLE); btnCheckCode.setAlpha(0f); btnCheckCode.animate().alpha(1f).setDuration(200).start(); }
+                if (textTimer != null) { textTimer.setVisibility(View.VISIBLE); textTimer.setAlpha(0f); textTimer.animate().alpha(1f).setDuration(200).start(); }
+                sendPwCode(etId, etEmailId, customWrapper, etDomainCustom, spinner, textTimer);
             });
-        });
+
+        } else {
+            if (layoutCodeSection != null) layoutCodeSection.setVisibility(View.GONE);
+            btnSendCode.setOnClickListener(v -> {
+                if (layoutCodeSection != null) {
+                    layoutCodeSection.setVisibility(View.VISIBLE);
+                    layoutCodeSection.setAlpha(0f);
+                    layoutCodeSection.animate().alpha(1f).setDuration(300).start();
+                }
+                sendPwCode(etId, etEmailId, customWrapper, etDomainCustom, spinner, textTimer);
+            });
+        }
 
         // 인증코드 확인
         btnCheckCode.setOnClickListener(v -> {
@@ -442,8 +438,8 @@ public class FindAccountActivity extends AppCompatActivity {
 
             ApiService.VerifyEmailCodeRequest req =
                     new ApiService.VerifyEmailCodeRequest(verificationId, currentEmail, currentPurpose, code);
-            ApiClient.get().verifyEmail(req).enqueue(new Callback<Map<String,Object>>() {
-                @Override public void onResponse(Call<Map<String,Object>> call, Response<Map<String,Object>> res) {
+            ApiClient.get().verifyEmail(req).enqueue(new Callback<Map<String, Object>>() {
+                @Override public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> res) {
                     if (res.isSuccessful() && res.body() != null) {
                         btnFindPwNext.setEnabled(true);
                         toast("인증 성공!");
@@ -451,7 +447,9 @@ public class FindAccountActivity extends AppCompatActivity {
                         toast("인증 실패!");
                     }
                 }
-                @Override public void onFailure(Call<Map<String,Object>> call, Throwable t) { toast("네트워크 오류"); }
+                @Override public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                    toast("네트워크 오류");
+                }
             });
         });
 
@@ -468,18 +466,54 @@ public class FindAccountActivity extends AppCompatActivity {
             body.put("email", currentEmail);
             body.put("verificationId", verificationId);
 
-            ApiClient.get().verifyPwUser(body).enqueue(new Callback<Map<String,Object>>() {
-                @Override public void onResponse(Call<Map<String,Object>> call, Response<Map<String,Object>> res) {
+            ApiClient.get().verifyPwUser(body).enqueue(new Callback<Map<String, Object>>() {
+                @Override public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> res) {
                     if (res.isSuccessful() && res.body() != null && Boolean.TRUE.equals(res.body().get("ok"))) {
                         lastFoundUserId = userId;
-                        lastFoundEmail = currentEmail;
+                        lastFoundEmail  = currentEmail;
                         showPwReset(userId);
                     } else {
                         toast("회원 정보가 일치하지 않습니다.");
                     }
                 }
-                @Override public void onFailure(Call<Map<String,Object>> call, Throwable t) { toast("네트워크 오류"); }
+                @Override public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                    toast("네트워크 오류");
+                }
             });
+        });
+    }
+
+    /** 인증코드 발송 (비밀번호 찾기) */
+    private void sendPwCode(EditText etId, EditText etEmailId, LinearLayout customWrapper,
+                            EditText etDomainCustom, Spinner spinner, TextView textTimer) {
+        String userId  = etId.getText().toString().trim();
+        String emailId = etEmailId.getText().toString().trim();
+        String domain  = (customWrapper.getVisibility() == View.VISIBLE)
+                ? etDomainCustom.getText().toString().trim()
+                : spinner.getSelectedItem().toString();
+
+        if (userId.isEmpty() || emailId.isEmpty() || domain.isEmpty()) {
+            toast("아이디와 이메일을 입력하세요");
+            return;
+        }
+        currentEmail   = emailId + "@" + domain;
+        currentPurpose = "FIND_PW";
+
+        ApiService.SendEmailCodeRequest req =
+                new ApiService.SendEmailCodeRequest(currentEmail, currentPurpose);
+        ApiClient.get().sendEmail(req).enqueue(new Callback<Map<String, Object>>() {
+            @Override public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> res) {
+                if (res.isSuccessful() && res.body() != null) {
+                    verificationId = String.valueOf(res.body().get("verificationId"));
+                    startTimer(textTimer, 10 * 60);
+                    toast("인증코드를 " + currentEmail + " 로 전송했습니다.");
+                } else {
+                    toast("전송 실패(" + res.code() + ")");
+                }
+            }
+            @Override public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                toast("네트워크 오류");
+            }
         });
     }
 
@@ -489,26 +523,26 @@ public class FindAccountActivity extends AppCompatActivity {
         removeOverlays();
         pwResetView = getLayoutInflater().inflate(R.layout.layout_find_pw_result, frameContent, false);
 
-        EditText etNewPw = pwResetView.findViewById(R.id.et_new_pw);
+        EditText etNewPw     = pwResetView.findViewById(R.id.et_new_pw);
         EditText etConfirmPw = pwResetView.findViewById(R.id.et_confirm_pw);
-        TextView tvMismatch = pwResetView.findViewById(R.id.tv_pw_mismatch);
+        TextView tvMismatch  = pwResetView.findViewById(R.id.tv_pw_mismatch);
 
         TextView tvRuleLen = pwResetView.findViewById(R.id.tv_pw_rule_length);
         TextView tvRuleMix = pwResetView.findViewById(R.id.tv_pw_rule_mix);
         TextView tvRuleSeq = pwResetView.findViewById(R.id.tv_pw_rule_sequence);
 
-        Button btnCancel = pwResetView.findViewById(R.id.btn_cancel_pw);
+        Button btnCancel  = pwResetView.findViewById(R.id.btn_cancel_pw);
         Button btnConfirm = pwResetView.findViewById(R.id.btn_confirm_pw);
         btnConfirm.setEnabled(false);
 
-        final int RED = ContextCompat.getColor(this, android.R.color.holo_red_dark);
+        final int RED   = ContextCompat.getColor(this, android.R.color.holo_red_dark);
         final int GREEN = ContextCompat.getColor(this, android.R.color.holo_green_dark);
 
         TextWatcher watcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
             @Override public void onTextChanged(CharSequence s, int st, int b, int c) {}
             @Override public void afterTextChanged(Editable s) {
-                String pw = etNewPw.getText().toString();
+                String pw      = etNewPw.getText().toString();
                 String confirm = etConfirmPw.getText().toString();
 
                 boolean lenOk = pw.length() >= 10 && pw.length() <= 16 && pw.matches("^[A-Za-z0-9]+$");
@@ -520,9 +554,24 @@ public class FindAccountActivity extends AppCompatActivity {
                 tvRuleSeq.setTextColor(seqOk ? GREEN : RED);
 
                 boolean allPolicyOk = lenOk && mixOk && seqOk;
-                boolean match = !confirm.isEmpty() && pw.equals(confirm);
+                boolean hasBoth = !pw.isEmpty() && !confirm.isEmpty();
+                boolean match = hasBoth && pw.equals(confirm);
 
-                tvMismatch.setVisibility(match ? View.GONE : View.VISIBLE);
+                // 🔹 일치/불일치 메시지 표시 로직 (하나의 TextView를 재활용)
+                if (!hasBoth) {
+                    // 둘 중 하나라도 비어 있으면 힌트 감춤
+                    tvMismatch.setVisibility(View.GONE);
+                } else {
+                    tvMismatch.setVisibility(View.VISIBLE);
+                    if (match) {
+                        tvMismatch.setText("일치합니다");
+                        tvMismatch.setTextColor(GREEN);
+                    } else {
+                        tvMismatch.setText("일치하지 않습니다");
+                        tvMismatch.setTextColor(RED);
+                    }
+                }
+
                 btnConfirm.setEnabled(allPolicyOk && match);
             }
         };
@@ -557,8 +606,8 @@ public class FindAccountActivity extends AppCompatActivity {
             body.put("verificationId", verificationId);
             body.put("newPassword", newPw);
 
-            ApiClient.get().resetPasswordAfterVerify(body).enqueue(new Callback<Map<String,Object>>() {
-                @Override public void onResponse(Call<Map<String,Object>> call, Response<Map<String,Object>> res) {
+            ApiClient.get().resetPasswordAfterVerify(body).enqueue(new Callback<Map<String, Object>>() {
+                @Override public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> res) {
                     if (res.isSuccessful() && res.body() != null && Boolean.TRUE.equals(res.body().get("ok"))) {
                         AlertDialog.Builder builder = new AlertDialog.Builder(FindAccountActivity.this);
                         View dialogView = getLayoutInflater().inflate(R.layout.layout_pw_popup_result, null);
@@ -589,7 +638,9 @@ public class FindAccountActivity extends AppCompatActivity {
                         toast("비밀번호 변경 실패");
                     }
                 }
-                @Override public void onFailure(Call<Map<String,Object>> call, Throwable t) { toast("네트워크 오류"); }
+                @Override public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                    toast("네트워크 오류");
+                }
             });
         });
 

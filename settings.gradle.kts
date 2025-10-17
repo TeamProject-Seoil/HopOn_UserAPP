@@ -22,5 +22,5 @@ dependencyResolutionManagement {
 }
 
 
-rootProject.name = "testmap"
+rootProject.name = "HopOn_UserApp"
 include(":app")

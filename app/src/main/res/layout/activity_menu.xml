@@ -60,8 +60,6 @@
             app:lottie_rawRes="@raw/bus_motion" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- Lottie 애니메이션 영역 -->
-
     <!-- 프로필 영역 -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/profile_section"
@@ -171,14 +169,17 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- 설정 -->
+        <!-- 설정 (행 전체 클릭) -->
         <LinearLayout
+            android:id="@+id/row_settings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:background="?attr/selectableItemBackground"
-            android:paddingVertical="10dp">
+            android:paddingVertical="10dp"
+            android:clickable="true"
+            android:focusable="true">
 
             <ImageView
                 android:id="@+id/icon_settings"
@@ -194,17 +195,22 @@
                 android:text="설정"
                 android:textColor="#000000"
                 android:background="@android:color/transparent"
-                android:textSize="18sp"/>
+                android:textSize="18sp"
+                android:clickable="false"
+                android:focusable="false"/>
         </LinearLayout>
 
-        <!-- 공지사항 -->
+        <!-- 공지사항 (행 전체 클릭) -->
         <LinearLayout
+            android:id="@+id/row_notice"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:background="?attr/selectableItemBackground"
-            android:paddingVertical="10dp">
+            android:paddingVertical="10dp"
+            android:clickable="true"
+            android:focusable="true">
 
             <ImageView
                 android:id="@+id/icon_notice"
@@ -220,17 +226,22 @@
                 android:text="공지사항"
                 android:textColor="#000000"
                 android:background="@android:color/transparent"
-                android:textSize="18sp"/>
+                android:textSize="18sp"
+                android:clickable="false"
+                android:focusable="false"/>
         </LinearLayout>
 
-        <!-- 오픈소스 -->
+        <!-- 오픈소스 활용정보 (행 전체 클릭) -->
         <LinearLayout
+            android:id="@+id/row_opensource"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:background="?attr/selectableItemBackground"
-            android:paddingVertical="10dp">
+            android:paddingVertical="10dp"
+            android:clickable="true"
+            android:focusable="true">
 
             <ImageView
                 android:id="@+id/icon_opensource"
@@ -246,7 +257,9 @@
                 android:text="오픈소스 활용정보"
                 android:textColor="#000000"
                 android:background="@android:color/transparent"
-                android:textSize="18sp"/>
+                android:textSize="18sp"
+                android:clickable="false"
+                android:focusable="false"/>
         </LinearLayout>
     </LinearLayout>
 
