@@ -1,3 +1,4 @@
+// app/src/main/java/com/example/testmap/service/ApiService.java
 package com.example.testmap.service;
 
 import com.example.testmap.dto.ArrivalDto;
@@ -102,7 +103,7 @@ public interface ApiService {
             @Field("deviceId") String deviceId
     );
 
-    // ✅ 사용자앱용: 면허 사진 제거(프로필 파일만 선택적 업로드)
+    // ✅ 회원가입(프로필 파일 선택적)
     @Multipart
     @POST("/auth/register")
     Call<RegisterResponse> register(
@@ -152,8 +153,30 @@ public interface ApiService {
     @POST("/auth/reset-password-after-verify")
     Call<Map<String, Object>> resetPasswordAfterVerify(@Body Map<String, Object> body);
 
+    // (기존) 이메일 인증 기반 사용자 확인 (아이디/비번 찾기 플로우에서 사용)
     @POST("/auth/verify-pw-user")
-    Call<Map<String, Object>> verifyPwUser(@Body Map<String, Object> body);
+    Call<Map<String, Object>> verifyPwUser(
+            @Header("Authorization") String bearer, // null 넣어도 서버에서 안 씀
+            @Body Map<String, Object> body
+    );
+
+    // ====== 새로 추가: 현재 비밀번호 확인 전용 ======
+    class VerifyCurrentPasswordRequest {
+        public String currentPassword;
+        public String clientType;
+        public String deviceId;
+        public VerifyCurrentPasswordRequest(String currentPassword, String clientType, String deviceId) {
+            this.currentPassword = currentPassword;
+            this.clientType = clientType;
+            this.deviceId = deviceId;
+        }
+    }
+
+    @POST("/auth/verify-current-password")
+    Call<Map<String,Object>> verifyCurrentPassword(
+            @Header("Authorization") String bearer,
+            @Body VerifyCurrentPasswordRequest body
+    );
 
     // ====== 로그인 사용자 ======
     @GET("/users/me")
@@ -175,11 +198,12 @@ public interface ApiService {
         public String role;
         public boolean hasProfileImage;
 
-        // 추가 필드(있으면 사용, 없어도 무방)
+        // 추가 필드(있으면 사용)
         public String company;
         public String approvalStatus;
         public Boolean hasDriverLicenseFile;
         public String lastLoginAtIso;
+        public String lastRefreshAtIso; // 드라이버앱에서 쓰는 경우 대비
     }
 
     class LogoutRequest {

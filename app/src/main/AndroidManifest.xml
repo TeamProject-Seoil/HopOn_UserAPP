@@ -29,6 +29,10 @@
         <activity android:name=".activity.SettingsActivity"/>
         <activity android:name=".activity.BusRouteActivity"/>
         <activity android:name=".activity.FindAccountActivity" />
+        <activity
+            android:name=".activity.UserQuitActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"/>
 
         <meta-data
             android:name="com.naver.maps.map.NCP_KEY_ID"
