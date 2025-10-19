@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white"
+    android:orientation="vertical"
+    >
+
+    <!-- 상단 바 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="16dp"
+        android:layout_marginTop="24dp"
+        android:background="@color/mainblue">
+
+        <ImageView
+            android:id="@+id/back_icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_back"
+            android:contentDescription="@string/back"
+            android:tint="@android:color/white" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:text="즐겨찾기"
+            android:textColor="@android:color/white"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/clearAll"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="전체 삭제"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:padding="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+    </LinearLayout>
+
+    <!-- 즐겨찾기 섹션 (위쪽 절반) -->
+    <LinearLayout
+        android:id="@+id/section_fav"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <!-- 섹션 헤더 -->
+        <TextView
+            android:id="@+id/fav_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="즐겨찾기"
+            android:textStyle="bold"
+            android:textColor="#333"
+            android:textSize="16sp"
+            android:padding="16dp" />
+
+        <!-- 빈 상태 -->
+        <TextView
+            android:id="@+id/emptyFavText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="즐겨찾기가 없습니다."
+            android:textColor="#888"
+            android:textSize="13sp"
+            android:gravity="center"
+            android:visibility="gone"
+            android:paddingVertical="8dp" />
+
+        <!-- 목록: 내부 스크롤, 최대 4행 높이 제한 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/fav_recycler"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:paddingHorizontal="4dp"
+            android:paddingBottom="8dp"
+            android:clipToPadding="false"
+            tools:listitem="@layout/item_fav_bus" />
+    </LinearLayout>
+
+    <!-- 최근 내역 섹션 (아래쪽 절반) -->
+    <LinearLayout
+        android:id="@+id/section_recent"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <!-- 섹션 헤더 -->
+        <TextView
+            android:id="@+id/recent_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="최근 내역"
+            android:textStyle="bold"
+            android:textColor="#333"
+            android:textSize="16sp"
+            android:padding="16dp" />
+
+        <!-- 빈 상태 -->
+        <TextView
+            android:id="@+id/emptyRecentText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="최근 내역이 없습니다."
+            android:textColor="#888"
+            android:textSize="13sp"
+            android:gravity="center"
+            android:visibility="gone"
+            android:paddingVertical="8dp" />
+
+        <!-- 목록: 내부 스크롤, 최대 4행 높이 제한 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recent_recycler"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:paddingHorizontal="4dp"
+            android:paddingBottom="8dp"
+            android:clipToPadding="false"
+            tools:listitem="@layout/item_recent_bus" />
+    </LinearLayout>
+
+</LinearLayout>

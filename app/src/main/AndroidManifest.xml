@@ -29,6 +29,7 @@
         <activity android:name=".activity.SettingsActivity"/>
         <activity android:name=".activity.BusRouteActivity"/>
         <activity android:name=".activity.FindAccountActivity" />
+        <activity android:name=".activity.FavoritesAndRecentActivity" />
         <activity
             android:name=".activity.UserQuitActivity"
             android:exported="false"

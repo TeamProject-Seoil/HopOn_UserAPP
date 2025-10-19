@@ -1,257 +1,254 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="320dp"
+    android:layout_width="370dp"
     android:layout_height="wrap_content"
-    android:background="@android:color/white"
-    android:orientation="vertical"
-    android:padding="16dp"
     android:layout_gravity="center"
-    android:elevation="6dp">
+    app:cardCornerRadius="16dp"
+    app:cardUseCompatPadding="true"
+    app:cardElevation="6dp"
+    app:cardBackgroundColor="@android:color/white"
+    app:contentPadding="16dp">
 
-    <!-- 상단 버스 정보 -->
+    <!-- ↓↓↓ 기존 내용 그대로 (루트 LinearLayout의 padding/elevation/background는 카드가 가져갔으므로 제거) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:orientation="vertical">
 
-        <!-- 버스 아이콘 -->
-        <ImageView
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_marginEnd="8dp"
-            android:src="@drawable/hopon_new_icon"
-            />
-
-        <!-- 버스 번호와 방향 -->
+        <!-- 상단 버스 정보 -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-            <TextView
-                android:id="@+id/tvBusNumber"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="버스 번호"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:textColor="#000000" />
+            <!-- 버스 아이콘 -->
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginEnd="8dp"
+                android:src="@drawable/hopon_new_icon" />
 
-            <TextView
-                android:id="@+id/tvBusDirection"
-                android:layout_width="wrap_content"
+            <!-- 버스 번호와 방향 -->
+            <LinearLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="방면 정보"
-                android:textSize="14sp"
-                android:textColor="#444444" />
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvBusNumber"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="버스 번호"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="#000000" />
+
+                <TextView
+                    android:id="@+id/tvBusDirection"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="방면 정보"
+                    android:textSize="14sp"
+                    android:textColor="#444444" />
+            </LinearLayout>
+
+            <!-- 즐겨찾기 버튼 -->
+            <ImageView
+                android:id="@+id/btnFavorite"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:src="@drawable/ic_star2" />
         </LinearLayout>
 
-        <!-- 즐겨찾기 버튼 -->
-        <ImageView
-            android:id="@+id/btnFavorite"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:src="@drawable/ic_star2" />
-    </LinearLayout>
+        <!-- 구분선 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#E0E0E0"
+            android:layout_marginVertical="8dp" />
 
-    <!-- 구분선 -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#E0E0E0"
-        android:layout_marginVertical="8dp" />
+        <!-- 승차 정보 -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:color/white"
+            android:padding="16dp">
 
-    <!-- 승차 정보 -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@android:color/white"
-        android:padding="16dp">
+            <ImageView
+                android:id="@+id/riding_image"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/flag"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- 이미지뷰 -->
-        <ImageView
-            android:id="@+id/riding_image"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:src="@drawable/flag"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            <TextView
+                android:id="@+id/riding"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="승차"
+                android:textColor="#000000"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:layout_constraintStart_toEndOf="@id/riding_image"
+                app:layout_constraintTop_toTopOf="@id/riding_image" />
 
-        <!-- 텍스트뷰1 -->
-        <TextView
-            android:id="@+id/riding"
+            <TextView
+                android:id="@+id/riging_station"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:text="정류장명"
+                android:textColor="#000000"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:layout_constraintStart_toEndOf="@id/riding"
+                app:layout_constraintTop_toTopOf="@id/riding" />
+
+            <TextView
+                android:id="@+id/arrival_information_riding"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="57dp"
+                android:text="도착 정보"
+                android:textColor="#444444"
+                android:textSize="14sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.0"
+                app:layout_constraintStart_toEndOf="@id/riding_image"
+                app:layout_constraintTop_toBottomOf="@id/riding" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- API로 채울 승차 정류장 -->
+
+        <!-- 하차 정보 -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:color/white"
+            android:padding="16dp">
+
+            <ImageView
+                android:id="@+id/out_image"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/flag"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:id="@+id/out"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="하차"
+                android:textColor="#000000"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:layout_constraintStart_toEndOf="@id/out_image"
+                app:layout_constraintTop_toTopOf="@id/out_image" />
+
+            <TextView
+                android:id="@+id/out_station"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:text="정류장명"
+                android:textColor="#000000"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:layout_constraintStart_toEndOf="@id/out"
+                app:layout_constraintTop_toTopOf="@id/out" />
+
+            <TextView
+                android:id="@+id/arrival_information"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="57dp"
+                android:text="도착 정보"
+                android:textColor="#444444"
+                android:textSize="14sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="1.0"
+                app:layout_constraintStart_toEndOf="@id/out_image"
+                app:layout_constraintTop_toBottomOf="@id/out" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- 구분선 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#E0E0E0"
+            android:layout_marginVertical="8dp" />
+
+        <!-- 알림 옵션 -->
+        <RadioButton
+            android:id="@+id/notice"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
-            android:text="승차"
-            android:textColor="#000000"
+            android:text="알림 받을 이벤트 선택"
             android:textSize="15sp"
-            android:textStyle="bold"
-            app:layout_constraintStart_toEndOf="@id/riding_image"
-            app:layout_constraintTop_toTopOf="@id/riding_image" />
+            android:textColor="#000000"
+            android:buttonTint="#4285F4"
+            android:clickable="false"
+            android:focusable="false"
+            android:focusableInTouchMode="false"/>
 
-        <!-- 텍스트뷰2 -->
-        <TextView
-            android:id="@+id/riging_station"
+        <CheckBox
+            android:id="@+id/checkBoardingAlarm"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
-            android:text="정류장명"
-            android:textColor="#000000"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            app:layout_constraintStart_toEndOf="@id/riding"
-            app:layout_constraintTop_toTopOf="@id/riding" />
+            android:text="승차 알림"
+            android:buttonTint="#000000"
+            android:textColor="#444444"/>
 
-        <!-- 텍스트뷰3 -->
-        <TextView
-            android:id="@+id/arrival_information_riding"
-            android:layout_width="0dp"
+        <CheckBox
+            android:id="@+id/checkDropOffAlarm"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="57dp"
-            android:text="도착 정보"
+            android:text="하차 알림"
+            android:buttonTint="#000000"
             android:textColor="#444444"
-            android:textSize="14sp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.0"
-            app:layout_constraintStart_toEndOf="@id/riding_image"
-            app:layout_constraintTop_toBottomOf="@id/riding" />
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            android:layout_marginBottom="12dp"/>
 
-
-
-    <!-- API로 채울 승차 정류장 -->
-
-
-
-    <!-- 하차 정보 -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@android:color/white"
-        android:padding="16dp">
-
-        <!-- 이미지뷰 -->
-        <ImageView
-            android:id="@+id/out_image"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:src="@drawable/flag"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <!-- 텍스트뷰1 -->
-        <TextView
-            android:id="@+id/out"
-            android:layout_width="wrap_content"
+        <!-- 버튼 영역 -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
-            android:text="하차"
-            android:textColor="#000000"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            app:layout_constraintStart_toEndOf="@id/out_image"
-            app:layout_constraintTop_toTopOf="@id/out_image" />
+            android:orientation="horizontal"
+            android:gravity="center">
 
-        <!-- 텍스트뷰2 -->
-        <TextView
-            android:id="@+id/out_station"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="20dp"
-            android:text="정류장명"
-            android:textColor="#000000"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            app:layout_constraintStart_toEndOf="@id/out"
-            app:layout_constraintTop_toTopOf="@id/out" />
+            <Button
+                android:id="@+id/btnCancel"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:backgroundTint="#5F5F5F"
+                android:elevation="4dp"
+                android:text="취소"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold"/>
 
-        <!-- 텍스트뷰3 -->
-        <TextView
-            android:id="@+id/arrival_information"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="57dp"
-            android:text="도착 정보"
-            android:textColor="#444444"
-            android:textSize="14sp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="1.0"
-            app:layout_constraintStart_toEndOf="@id/out_image"
-            app:layout_constraintTop_toBottomOf="@id/out" />
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            <Button
+                android:id="@+id/btnReserve"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:backgroundTint="#2196F3"
+                android:elevation="4dp"
+                android:text="예약하기"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold"/>
+        </LinearLayout>
 
-    <!-- 구분선 -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#E0E0E0"
-        android:layout_marginVertical="8dp" />
-
-    <!-- 알림 옵션 -->
-    <RadioButton
-        android:id="@+id/notice"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="알림 받을 이벤트 선택"
-        android:textSize="15sp"
-        android:textColor="#000000"
-        android:buttonTint="#4285F4"
-        android:clickable="false"
-        android:focusable="false"
-        android:focusableInTouchMode="false"/>
-
-
-    <CheckBox
-        android:id="@+id/checkBoardingAlarm"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="승차 알림"
-        android:buttonTint="#000000"
-        android:textColor="#444444"/>
-
-    <CheckBox
-        android:id="@+id/checkDropOffAlarm"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="하차 알림"
-        android:buttonTint="#000000"
-        android:textColor="#444444"
-        android:layout_marginBottom="12dp"/>
-
-    <!-- 버튼 영역 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center">
-
-        <Button
-            android:id="@+id/btnCancel"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:layout_marginEnd="8dp"
-            android:backgroundTint="#5F5F5F"
-            android:elevation="4dp"
-            android:text="취소"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:textStyle="bold"/>
-
-        <Button
-            android:id="@+id/btnReserve"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_weight="1"
-            android:backgroundTint="#2196F3"
-            android:elevation="4dp"
-            android:text="예약하기"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:textStyle="bold"/>
     </LinearLayout>
-</LinearLayout>
+    <!-- ↑↑↑ 기존 내용 끝 -->
+</com.google.android.material.card.MaterialCardView>

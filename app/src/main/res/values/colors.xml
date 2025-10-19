@@ -13,7 +13,8 @@
     <color name="bus_default">#9E9E9E</color>
     <color name="teal_700">#018786</color>
     <color name="mainblue">#4B93FF</color>
-
+    <color name="blue_500">#2196F3</color>   <!-- 즐겨찾기 ON -->
+    <color name="gray_500">#9E9E9E</color>   <!-- 즐겨찾기 OFF -->
     <color name="cong_free_green">#2E7D32</color>     <!-- 여유 -->
     <color name="cong_medium_yellow">#F9A825</color> <!-- 보통 -->
     <color name="cong_busy_red">#D32F2F</color> <!-- 혼잡,매우혼잡 -->

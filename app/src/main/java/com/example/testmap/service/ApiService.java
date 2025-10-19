@@ -103,12 +103,11 @@ public interface ApiService {
             @Field("deviceId") String deviceId
     );
 
-    // ✅ 회원가입(프로필 파일 선택적)
     @Multipart
     @POST("/auth/register")
     Call<RegisterResponse> register(
             @Part("data") RequestBody dataJson,
-            @Part MultipartBody.Part file // 프로필 이미지 없으면 null 전달
+            @Part MultipartBody.Part file
     );
 
     @GET("/auth/check")
@@ -146,21 +145,20 @@ public interface ApiService {
         }
     }
 
-    // ====== 아이디/비번 찾기 ======
+    // ====== 아이디 / 비밀번호 찾기 ======
     @POST("/auth/find-id-after-verify")
     Call<Map<String, Object>> findIdAfterVerify(@Body Map<String, Object> body);
 
     @POST("/auth/reset-password-after-verify")
     Call<Map<String, Object>> resetPasswordAfterVerify(@Body Map<String, Object> body);
 
-    // (기존) 이메일 인증 기반 사용자 확인 (아이디/비번 찾기 플로우에서 사용)
     @POST("/auth/verify-pw-user")
     Call<Map<String, Object>> verifyPwUser(
-            @Header("Authorization") String bearer, // null 넣어도 서버에서 안 씀
+            @Header("Authorization") String bearer,
             @Body Map<String, Object> body
     );
 
-    // ====== 새로 추가: 현재 비밀번호 확인 전용 ======
+    // ====== 현재 비밀번호 확인 ======
     class VerifyCurrentPasswordRequest {
         public String currentPassword;
         public String clientType;
@@ -185,7 +183,6 @@ public interface ApiService {
     @GET("/users/me/profile-image")
     Call<ResponseBody> meImage(@Header("Authorization") String bearer);
 
-    // 서버가 JSON(Map) 반환 → Map 유지
     @POST("/auth/logout")
     Call<Map<String, Object>> logout(@Body LogoutRequest body);
 
@@ -198,12 +195,11 @@ public interface ApiService {
         public String role;
         public boolean hasProfileImage;
 
-        // 추가 필드(있으면 사용)
         public String company;
         public String approvalStatus;
         public Boolean hasDriverLicenseFile;
         public String lastLoginAtIso;
-        public String lastRefreshAtIso; // 드라이버앱에서 쓰는 경우 대비
+        public String lastRefreshAtIso;
     }
 
     class LogoutRequest {
@@ -223,7 +219,7 @@ public interface ApiService {
     Call<UserResponse> updateMe(
             @Header("Authorization") String bearer,
             @Part("data") RequestBody dataJson,
-            @Part MultipartBody.Part file // 선택
+            @Part MultipartBody.Part file
     );
 
     // ====== 비밀번호 변경 ======
@@ -268,9 +264,73 @@ public interface ApiService {
             @Header("Authorization") String bearer
     );
 
+    @GET("/api/reservations")
+    Call<List<ReservationResponse>> getReservations(
+            @Header("Authorization") String bearer
+    );
+
     @DELETE("/api/reservations/{id}")
     Call<CancelResult> cancelReservationById(
             @Header("Authorization") String bearer,
             @Path("id") Long reservationId
     );
+
+    // ====== 즐겨찾기 ======
+    @POST("/api/favorites")
+    Call<FavoriteResponse> addFavorite(
+            @Header("Authorization") String bearer,
+            @Body FavoriteCreateRequest body
+    );
+
+    @GET("/api/favorites")
+    Call<List<FavoriteResponse>> getFavorites(
+            @Header("Authorization") String bearer
+    );
+
+    @DELETE("/api/favorites/{id}")
+    Call<Void> deleteFavorite(
+            @Header("Authorization") String bearer,
+            @Path("id") Long id
+    );
+
+    // ---- 즐겨찾기 DTO ----
+    class FavoriteCreateRequest {
+        public String routeId;
+        public String direction;
+        public String boardStopId;
+        public String boardStopName;
+        public String boardArsId;
+        public String destStopId;
+        public String destStopName;
+        public String destArsId;
+        public String routeName;
+
+        public FavoriteCreateRequest(String routeId, String direction,
+                                     String boardStopId, String boardStopName, String boardArsId,
+                                     String destStopId, String destStopName, String destArsId,
+                                     String routeName) {
+            this.routeId       = routeId;
+            this.direction     = direction;
+            this.boardStopId   = boardStopId;
+            this.boardStopName = boardStopName;
+            this.boardArsId    = boardArsId;
+            this.destStopId    = destStopId;
+            this.destStopName  = destStopName;
+            this.destArsId     = destArsId;
+            this.routeName     = routeName;
+        }
+    }
+
+    class FavoriteResponse {
+        public Long id;
+        public String routeId;
+        public String direction;
+        public String boardStopId;
+        public String boardStopName;
+        public String boardArsId;
+        public String destStopId;
+        public String destStopName;
+        public String destArsId;
+        public String routeName;
+    }
 }

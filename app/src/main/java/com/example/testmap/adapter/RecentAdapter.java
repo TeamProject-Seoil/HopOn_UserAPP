@@ -32,45 +32,39 @@ public class RecentAdapter extends RecyclerView.Adapter<RecentAdapter.ViewHolder
         this.recentList = recentList;
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext())
+        View v = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_recent_bus, parent, false);
-        return new ViewHolder(view);
+        return new ViewHolder(v);
     }
 
     @Override
-    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+    public void onBindViewHolder(@NonNull ViewHolder h, int position) {
         RecentItem item = recentList.get(position);
-        holder.busNumber.setText(item.getBusNumber());
-        holder.startStation.setText("승차: " + item.getStartStation());
-        holder.endStation.setText("하차: " + item.getEndStation());
 
-        holder.itemView.setOnClickListener(v -> {
-            if (listener != null) listener.onItemClick(item);
-        });
+        h.busNumber.setText(item.getBusNumber()); // 파란 번호 박스 텍스트
+        h.startStation.setText("승차: " + item.getStartStation());
+        h.endStation.setText("하차: " + item.getEndStation());
 
-        holder.addFavIcon.setOnClickListener(v -> {
-            if (listener != null) listener.onAddFavClick(item);
-        });
+        h.itemView.setOnClickListener(v -> { if (listener != null) listener.onItemClick(item); });
+        h.addFavIcon.setOnClickListener(v -> { if (listener != null) listener.onAddFavClick(item); });
     }
 
     @Override
     public int getItemCount() {
-        return Math.min(recentList.size(), 3);
+        return recentList == null ? 0 : recentList.size(); // 전체 표시
     }
 
-    public static class ViewHolder extends RecyclerView.ViewHolder {
+    static class ViewHolder extends RecyclerView.ViewHolder {
         TextView busNumber, startStation, endStation;
         ImageView addFavIcon;
-
-        public ViewHolder(@NonNull View itemView) {
+        ViewHolder(@NonNull View itemView) {
             super(itemView);
-            busNumber = itemView.findViewById(R.id.bus_number_recent);
+            busNumber    = itemView.findViewById(R.id.bus_number_recent);
             startStation = itemView.findViewById(R.id.start_station);
-            endStation = itemView.findViewById(R.id.end_station);
-            addFavIcon = itemView.findViewById(R.id.add_to_fav);
+            endStation   = itemView.findViewById(R.id.end_station);
+            addFavIcon   = itemView.findViewById(R.id.add_to_fav);
         }
     }
 }

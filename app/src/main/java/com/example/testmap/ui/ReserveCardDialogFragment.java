@@ -1,4 +1,4 @@
-// app/src/main/java/com/example/testmap/ui/ReserveDialogFragment.java
+// app/src/main/java/com/example/testmap/ui/ReserveCardDialogFragment.java
 package com.example.testmap.ui;
 
 import android.app.Dialog;
@@ -10,9 +10,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.CheckBox;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -31,13 +28,21 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-public class ReserveDialogFragment extends DialogFragment {
+public class ReserveCardDialogFragment extends DialogFragment {
 
-    private static final String ARG_DEPARTURE_NAME = "departure_name";
-    private static final String ARG_ARRIVAL_NAME   = "arrival_name";
-    private static final String ARG_ROUTE_NAME     = "route_name";
+    public interface OnActionListener {
+        void onReserveClicked(boolean boardingAlarm, boolean dropOffAlarm);
+        void onCancelClicked();
+        default void onFavoriteChanged(boolean isFav, Long favId) {}
+    }
 
-    // 즐겨찾기/서버 연동용 (Optional)
+    // ===== 표시용 기본 아규먼트 =====
+    private static final String ARG_BUS_NO = "bus_no";
+    private static final String ARG_DIR    = "dir";
+    private static final String ARG_FROM   = "from";
+    private static final String ARG_TO     = "to";
+
+    // ===== 즐겨찾기 토글용(서버 연동) 아규먼트 =====
     private static final String ARG_ROUTE_ID    = "route_id";
     private static final String ARG_DIRECTION   = "direction";
     private static final String ARG_BOARD_ID    = "board_id";
@@ -46,112 +51,105 @@ public class ReserveDialogFragment extends DialogFragment {
     private static final String ARG_DEST_ID     = "dest_id";
     private static final String ARG_DEST_NAME   = "dest_name";
     private static final String ARG_DEST_ARS    = "dest_ars";
+    private static final String ARG_ROUTE_NAME  = "route_name";
+
+    // 초기 즐겨찾기 상태
     private static final String ARG_IS_FAVORITE = "is_favorite";
     private static final String ARG_FAVORITE_ID = "favorite_id";
 
-    public interface OnReserveListener {
-        void onReserveComplete(String departureName, String arrivalName, String routeName,
-                               boolean boardingAlarm, boolean dropOffAlarm);
-        default void onFavoriteChanged(boolean isFav, Long favId) {}
-    }
+    private OnActionListener listener;
 
-    private OnReserveListener listener;
+    public void setOnActionListener(OnActionListener l) { this.listener = l; }
 
-    public void setOnReserveListener(OnReserveListener listener) {
-        this.listener = listener;
-    }
-
-    /** 표시만 (서버 연동 없이 UI 토글 가능) */
-    public static ReserveDialogFragment newInstance(String departureName, String arrivalName, String routeName) {
-        ReserveDialogFragment f = new ReserveDialogFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_DEPARTURE_NAME, departureName);
-        args.putString(ARG_ARRIVAL_NAME,   arrivalName);
-        args.putString(ARG_ROUTE_NAME,     routeName);
-        f.setArguments(args);
+    /** 기존: 표시 데이터만 (서버 연동 없이 UI 토글만 가능) */
+    public static ReserveCardDialogFragment newInstance(String busNo, String dir, String from, String to) {
+        ReserveCardDialogFragment f = new ReserveCardDialogFragment();
+        Bundle b = new Bundle();
+        b.putString(ARG_BUS_NO, busNo);
+        b.putString(ARG_DIR,    dir);
+        b.putString(ARG_FROM,   from);
+        b.putString(ARG_TO,     to);
+        f.setArguments(b);
         return f;
     }
 
-    /** 서버 연동까지 가능한 버전 */
-    public static ReserveDialogFragment newInstanceFull(
-            String departureName, String arrivalName, String routeName,
+    /** 서버 연동까지 가능한 전체 파라미터 버전 */
+    public static ReserveCardDialogFragment newInstanceFull(
+            // 표시용
+            String busNo, String dirLabel, String fromLabel, String toLabel,
+            // 서버 연동용
             String routeId, String direction,
             String boardId, String boardName, String boardArs,
             String destId,  String destName,  String destArs,
+            String routeName,
             boolean isFavorite, Long favoriteId
     ) {
-        ReserveDialogFragment f = new ReserveDialogFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_DEPARTURE_NAME, departureName);
-        args.putString(ARG_ARRIVAL_NAME,   arrivalName);
-        args.putString(ARG_ROUTE_NAME,     routeName);
+        ReserveCardDialogFragment f = new ReserveCardDialogFragment();
+        Bundle b = new Bundle();
 
-        args.putString(ARG_ROUTE_ID,   routeId);
-        args.putString(ARG_DIRECTION,  direction);
-        args.putString(ARG_BOARD_ID,   boardId);
-        args.putString(ARG_BOARD_NAME, boardName);
-        args.putString(ARG_BOARD_ARS,  boardArs);
-        args.putString(ARG_DEST_ID,    destId);
-        args.putString(ARG_DEST_NAME,  destName);
-        args.putString(ARG_DEST_ARS,   destArs);
+        b.putString(ARG_BUS_NO, busNo);
+        b.putString(ARG_DIR,    dirLabel);
+        b.putString(ARG_FROM,   fromLabel);
+        b.putString(ARG_TO,     toLabel);
 
-        args.putBoolean(ARG_IS_FAVORITE, isFavorite);
-        if (favoriteId != null) args.putLong(ARG_FAVORITE_ID, favoriteId);
+        b.putString(ARG_ROUTE_ID,   routeId);
+        b.putString(ARG_DIRECTION,  direction);
+        b.putString(ARG_BOARD_ID,   boardId);
+        b.putString(ARG_BOARD_NAME, boardName);
+        b.putString(ARG_BOARD_ARS,  boardArs);
+        b.putString(ARG_DEST_ID,    destId);
+        b.putString(ARG_DEST_NAME,  destName);
+        b.putString(ARG_DEST_ARS,   destArs);
+        b.putString(ARG_ROUTE_NAME, routeName);
 
-        f.setArguments(args);
+        b.putBoolean(ARG_IS_FAVORITE, isFavorite);
+        if (favoriteId != null) b.putLong(ARG_FAVORITE_ID, favoriteId);
+
+        f.setArguments(b);
         return f;
     }
 
-    @NonNull
-    @Override
+    @NonNull @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-        View view = LayoutInflater.from(requireContext()).inflate(R.layout.reserve_screen, null, false);
+        View v = LayoutInflater.from(requireContext()).inflate(R.layout.reserve_screen, null, false);
 
         Bundle args = getArguments() != null ? getArguments() : new Bundle();
 
-        String departureName = args.getString(ARG_DEPARTURE_NAME, "출발역");
-        String arrivalName   = args.getString(ARG_ARRIVAL_NAME,   "도착역");
-        String routeName     = args.getString(ARG_ROUTE_NAME,     "버스");
+        // ===== 표시 데이터 바인딩 =====
+        String busNo = args.getString(ARG_BUS_NO, "");
+        String dir   = args.getString(ARG_DIR,    "");
+        String from  = args.getString(ARG_FROM,   "");
+        String to    = args.getString(ARG_TO,     "");
 
-        TextView tvBusNumber     = view.findViewById(R.id.tvBusNumber);
-        TextView tvRidingStation = view.findViewById(R.id.riging_station);
-        TextView tvOutStation    = view.findViewById(R.id.out_station);
-        CheckBox cbBoarding      = view.findViewById(R.id.checkBoardingAlarm);
-        CheckBox cbDropOff       = view.findViewById(R.id.checkDropOffAlarm);
-        Button btnCancel         = view.findViewById(R.id.btnCancel);
-        Button btnReserve        = view.findViewById(R.id.btnReserve);
-        android.widget.ImageView star = view.findViewById(R.id.btnFavorite);
+        ((android.widget.TextView) v.findViewById(R.id.tvBusNumber)).setText(busNo);
+        ((android.widget.TextView) v.findViewById(R.id.tvBusDirection)).setText(dir);
+        ((android.widget.TextView) v.findViewById(R.id.riging_station)).setText(from);
+        ((android.widget.TextView) v.findViewById(R.id.out_station)).setText(to);
 
-        tvBusNumber.setText(routeName);
-        tvRidingStation.setText(departureName);
-        tvOutStation.setText(arrivalName);
-
-        // 한 번에 하나만 체크
-        cbBoarding.setOnCheckedChangeListener((b, checked) -> { if (checked) cbDropOff.setChecked(false); });
-        cbDropOff.setOnCheckedChangeListener((b, checked) -> { if (checked) cbBoarding.setChecked(false); });
-
-        btnCancel.setOnClickListener(v -> dismiss());
-        btnReserve.setOnClickListener(v -> {
-            if (listener != null) {
-                listener.onReserveComplete(
-                        departureName, arrivalName, routeName,
-                        cbBoarding.isChecked(), cbDropOff.isChecked()
-                );
-            }
+        v.findViewById(R.id.btnCancel).setOnClickListener(view -> {
+            if (listener != null) listener.onCancelClicked();
             dismiss();
+        });
+        v.findViewById(R.id.btnReserve).setOnClickListener(view -> {
+            boolean boarding = ((android.widget.CheckBox) v.findViewById(R.id.checkBoardingAlarm)).isChecked();
+            boolean dropOff  = ((android.widget.CheckBox) v.findViewById(R.id.checkDropOffAlarm)).isChecked();
+            if (listener != null) listener.onReserveClicked(boarding, dropOff);
         });
 
         // ===== 즐겨찾기 토글 =====
+        android.widget.ImageView star = v.findViewById(R.id.btnFavorite);
+
         final boolean[] isFav = { args.getBoolean(ARG_IS_FAVORITE, false) };
         final long[] favId    = { args.containsKey(ARG_FAVORITE_ID) ? args.getLong(ARG_FAVORITE_ID) : -1L };
 
         updateStarIcon(star, isFav[0]);
 
-        star.setOnClickListener(v -> {
+        star.setOnClickListener(view -> {
+            // 서버 연동 가능한지 체크
             boolean hasAllParams =
-                    notEmpty(args.getString(ARG_ROUTE_ID)) &&
-                            notEmpty(args.getString(ARG_BOARD_ID)) &&
-                            notEmpty(args.getString(ARG_DEST_ID));
+                    !isEmpty(args.getString(ARG_ROUTE_ID)) &&
+                            !isEmpty(args.getString(ARG_BOARD_ID)) &&
+                            !isEmpty(args.getString(ARG_DEST_ID));
 
             String access = TokenStore.getAccess(requireContext());
             String bearer = !TextUtils.isEmpty(access) ? ("Bearer " + access) : null;
@@ -162,15 +160,19 @@ public class ReserveDialogFragment extends DialogFragment {
             }
 
             if (!hasAllParams) {
+                // 필수 값 없으면 UI만 토글
                 isFav[0] = !isFav[0];
                 updateStarIcon(star, isFav[0]);
-                android.widget.Toast.makeText(requireContext(), "즐겨찾기 정보가 부족해 서버 동기화 없이 표시만 바꿔요.", android.widget.Toast.LENGTH_SHORT).show();
+                android.widget.Toast
+                        .makeText(requireContext(), "즐겨찾기 정보가 부족해 서버 동기화 없이 표시만 바꿔요.", android.widget.Toast.LENGTH_SHORT)
+                        .show();
                 return;
             }
 
             if (isFav[0]) {
-                // 삭제
+                // ===== 삭제 흐름 =====
                 if (favId[0] <= 0) {
+                    // ID가 없으면 현재 내 즐겨찾기 목록에서 동일 항목을 찾아 ID를 먼저 해석
                     resolveFavoriteIdThen(bearer, args, id -> {
                         if (id == null) {
                             android.widget.Toast.makeText(requireContext(), "삭제할 즐겨찾기를 찾지 못했습니다.", android.widget.Toast.LENGTH_SHORT).show();
@@ -193,7 +195,7 @@ public class ReserveDialogFragment extends DialogFragment {
                     });
                 }
             } else {
-                // 추가
+                // ===== 추가 흐름 =====
                 ApiService.FavoriteCreateRequest body = new ApiService.FavoriteCreateRequest(
                         args.getString(ARG_ROUTE_ID),
                         args.getString(ARG_DIRECTION),
@@ -213,6 +215,7 @@ public class ReserveDialogFragment extends DialogFragment {
                             updateStarIcon(star, true);
                             if (listener != null) listener.onFavoriteChanged(true, favId[0]);
                         } else if (res.code()==409) {
+                            // 이미 존재 → 목록 조회로 ID 파악 후 상태 동기화
                             resolveFavoriteIdThen(bearer, args, id -> {
                                 isFav[0] = true;
                                 if (id != null) favId[0] = id;
@@ -231,12 +234,13 @@ public class ReserveDialogFragment extends DialogFragment {
             }
         });
 
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
-                .setView(view)
+        // ===== AlertDialog 구성 =====
+        AlertDialog dlg = new AlertDialog.Builder(requireContext())
+                .setView(v)
                 .create();
 
-        dialog.setOnShowListener(d -> {
-            Window w = dialog.getWindow();
+        dlg.setOnShowListener(d -> {
+            Window w = dlg.getWindow();
             if (w != null) {
                 w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
                 View decor = w.getDecorView();
@@ -246,7 +250,7 @@ public class ReserveDialogFragment extends DialogFragment {
             }
         });
 
-        return dialog;
+        return dlg;
     }
 
     private interface IdCallback { void onResolved(Long id); }
@@ -301,7 +305,9 @@ public class ReserveDialogFragment extends DialogFragment {
 
     private String nullToEmpty(String s) { return s == null ? "" : s; }
 
-    private boolean notEmpty(String s) { return s != null && !s.trim().isEmpty(); }
+    private boolean isEmpty(String s) {
+        return s == null || s.trim().isEmpty();
+    }
 
     private void updateStarIcon(android.widget.ImageView star, boolean isFav) {
         star.setImageResource(isFav ? R.drawable.ic_star_filled : R.drawable.ic_star_outline);

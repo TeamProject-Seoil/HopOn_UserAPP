@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 각 아이템의 평균 높이(본인 item 레이아웃에 맞게 조정) -->
+    <dimen name="item_row_height">64dp</dimen>
+    <dimen name="four_rows_max_height">256dp</dimen>
+</resources>
