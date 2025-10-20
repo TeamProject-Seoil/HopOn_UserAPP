@@ -22,8 +22,10 @@ import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.GravityCompat;
 import androidx.core.view.ViewCompat;
@@ -50,6 +52,7 @@ import com.example.testmap.ui.ReserveCardDialogFragment;
 import com.example.testmap.ui.LoginRequiredDialogFragment;
 import com.example.testmap.util.TokenStore;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.naver.maps.geometry.LatLng;
 import com.naver.maps.map.LocationTrackingMode;
 import com.naver.maps.map.MapView;
@@ -908,6 +911,49 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if (drawerLayout != null) drawerLayout.closeDrawer(GravityCompat.START);
             });
 
+
+            // ✅ 여기로 이동: 상단바 '전체 삭제' 버튼 연결
+            View clearAll = layoutFavorites.findViewById(R.id.clearAll);
+            if (clearAll != null) {
+                clearAll.setOnClickListener(v -> {
+                    String access = TokenStore.getAccess(MainActivity.this);
+                    if (TextUtils.isEmpty(access)) {
+                        Toast.makeText(MainActivity.this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+                        LoginRequiredDialogFragment.show(getSupportFragmentManager());
+                        return;
+                    }
+                    if (favIds.isEmpty()) {
+                        Toast.makeText(MainActivity.this, "삭제할 즐겨찾기가 없습니다.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    // 커스텀 뷰 inflate
+                    View content = getLayoutInflater().inflate(R.layout.dialog_confirm_delete_all, null, false);
+                    AlertDialog dialog = new MaterialAlertDialogBuilder(MainActivity.this)
+                            .setView(content)
+                            .create();
+
+                    // 배경 흰색+라운드 적용
+                    if (dialog.getWindow() != null) {
+                        dialog.getWindow().setBackgroundDrawable(
+                                ContextCompat.getDrawable(MainActivity.this, R.drawable.bg_white_card)
+                        );
+                    }
+
+                    // 버튼 핸들러
+                    Button btnCancel = content.findViewById(R.id.btnCancel);
+                    Button btnDelete = content.findViewById(R.id.btnDelete);
+                    btnCancel.setOnClickListener(dv -> dialog.dismiss());
+                    btnDelete.setOnClickListener(dv -> {
+                        dialog.dismiss();
+                        clearAllFavorites();
+                    });
+
+                    dialog.show();
+                });
+            }
+
+
             favRecycler     = layoutFavorites.findViewById(R.id.fav_recycler);
             recentRecycler  = layoutFavorites.findViewById(R.id.recent_recycler);
             emptyFavText    = layoutFavorites.findViewById(R.id.emptyFavText);
@@ -1028,6 +1074,56 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     if (drawerLayout != null) drawerLayout.closeDrawer(GravityCompat.START);
                 });
         }
+    }
+
+
+    private void clearAllFavorites() {
+        String access = TokenStore.getAccess(this);
+        if (TextUtils.isEmpty(access)) {
+            Toast.makeText(this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+            LoginRequiredDialogFragment.show(getSupportFragmentManager());
+            return;
+        }
+        final String bearer = "Bearer " + access;
+
+        // 현재 메모리의 즐겨찾기 ID 스냅샷
+        List<Long> ids = new ArrayList<>(favIds);
+        if (ids.isEmpty()) {
+            Toast.makeText(this, "삭제할 즐겨찾기가 없습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final int total = ids.size();
+        final int[] done = {0};
+        final int[] ok   = {0};
+
+        for (Long id : ids) {
+            ApiClient.get().deleteFavorite(bearer, id)
+                    .enqueue(new retrofit2.Callback<Void>() {
+                        @Override public void onResponse(retrofit2.Call<Void> call, retrofit2.Response<Void> res) {
+                            // 성공이든 404(이미 없음)이든 진행 카운트만 올림
+                            if (res.isSuccessful() || res.code() == 404) ok[0]++;
+                            if (++done[0] == total) {
+                                // 모두 끝나면 서버 상태 재조회 + 토스트
+                                fetchFavoritesIntoDrawer();
+                                Toast.makeText(MainActivity.this, "즐겨찾기 전체 삭제 완료 ("+ ok[0] +"/"+ total +")", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                        @Override public void onFailure(retrofit2.Call<Void> call, Throwable t) {
+                            if (++done[0] == total) {
+                                fetchFavoritesIntoDrawer();
+                                Toast.makeText(MainActivity.this, "일부 삭제에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    });
+        }
+
+        // 낙관적 UI: 즉시 비우고 상태 반영(네트워크 완료 후 fetch로 최종 동기화)
+        favItems.clear();
+        favIds.clear();
+        favDetailById.clear();
+        if (favAdapter != null) favAdapter.setItems(favItems);
+        updateDrawerEmpty();
     }
 
     // ===== 드로어 데이터 로딩 =====

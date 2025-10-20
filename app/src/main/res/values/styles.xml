@@ -20,4 +20,19 @@
         <item name="android:textColor">@android:color/white</item>
     </style>
 
+    <!-- 머터리얼3 다이얼로그용 오버레이 -->
+    <style name="ThemeOverlay.MyApp.AlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="materialAlertDialogTitleTextStyle">@style/AlertTitleText</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/AlertBodyText</item>
+    </style>
+
+    <style name="AlertTitleText" parent="@style/TextAppearance.Material3.TitleLarge">
+        <item name="android:textColor">?attr/colorOnSurface</item>
+    </style>
+
+    <style name="AlertBodyText" parent="@style/TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
+    </style>
+
+
 </resources>
