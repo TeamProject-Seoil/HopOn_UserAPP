@@ -5,4 +5,7 @@
     <string name="close">닫기</string>
     <string name="back">뒤로가기</string>
     <string name="ok">확인</string>
+    <string name="favorite">즐겨찾기</string>
+    <string name="fav_add">즐겨찾기 추가</string>
+    <string name="fav_remove">즐겨찾기 제거</string>
 </resources>

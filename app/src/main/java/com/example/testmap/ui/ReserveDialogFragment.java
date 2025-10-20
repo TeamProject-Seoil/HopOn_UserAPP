@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/testmap/ui/ReserveDialogFragment.java
 package com.example.testmap.ui;
 
 import android.app.Dialog;
@@ -17,8 +16,11 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
-import androidx.core.content.ContextCompat;
+import androidx.appcompat.widget.TooltipCompat;
+import androidx.core.widget.ImageViewCompat;
 import androidx.fragment.app.DialogFragment;
+
+import android.content.res.ColorStateList;
 
 import com.example.testmap.R;
 import com.example.testmap.service.ApiClient;
@@ -120,7 +122,7 @@ public class ReserveDialogFragment extends DialogFragment {
         CheckBox cbDropOff       = view.findViewById(R.id.checkDropOffAlarm);
         Button btnCancel         = view.findViewById(R.id.btnCancel);
         Button btnReserve        = view.findViewById(R.id.btnReserve);
-        android.widget.ImageView star = view.findViewById(R.id.btnFavorite);
+        android.widget.ImageView star = view.findViewById(R.id.btnFavoriteActive);
 
         tvBusNumber.setText(routeName);
         tvRidingStation.setText(departureName);
@@ -146,7 +148,7 @@ public class ReserveDialogFragment extends DialogFragment {
         final long[] favId    = { args.containsKey(ARG_FAVORITE_ID) ? args.getLong(ARG_FAVORITE_ID) : -1L };
         final boolean[] busy  = { false }; // 중복 요청 방지
 
-        updateStarIcon(star, isFav[0]);
+        applyStar(star, isFav[0]);
 
         star.setOnClickListener(v -> {
             if (busy[0]) return; // 요청 중이면 무시
@@ -167,7 +169,7 @@ public class ReserveDialogFragment extends DialogFragment {
 
             if (!hasAllParams) {
                 isFav[0] = !isFav[0];
-                updateStarIcon(star, isFav[0]);
+                applyStar(star, isFav[0]);
                 android.widget.Toast.makeText(requireContext(), "즐겨찾기 정보가 부족해 서버 동기화 없이 표시만 바꿔요.", android.widget.Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -181,7 +183,7 @@ public class ReserveDialogFragment extends DialogFragment {
                 Runnable finalizeUi = () -> {
                     isFav[0] = false;
                     favId[0] = -1L;
-                    updateStarIcon(star, false);
+                    applyStar(star, false);
                     if (listener != null) listener.onFavoriteChanged(false, null);
                     busy[0] = false;
                     star.setEnabled(true);
@@ -225,14 +227,14 @@ public class ReserveDialogFragment extends DialogFragment {
                         if (res.isSuccessful() && res.body()!=null) {
                             isFav[0] = true;
                             favId[0] = res.body().id;
-                            updateStarIcon(star, true);
+                            applyStar(star, true);
                             if (listener != null) listener.onFavoriteChanged(true, favId[0]);
                         } else if (res.code()==409) {
                             // 이미 존재 → id 조회해서 동기화
                             resolveFavoriteIdThen(bearer, args, id -> {
                                 isFav[0] = true;
                                 if (id != null) favId[0] = id;
-                                updateStarIcon(star, true);
+                                applyStar(star, true);
                                 if (listener != null) listener.onFavoriteChanged(true, favId[0] > 0 ? favId[0] : null);
                                 android.widget.Toast.makeText(requireContext(), "이미 즐겨찾기에 있어요.", android.widget.Toast.LENGTH_SHORT).show();
                             });
@@ -297,7 +299,7 @@ public class ReserveDialogFragment extends DialogFragment {
         ApiClient.get().deleteFavorite(bearer, id).enqueue(new Callback<Void>() {
             @Override public void onResponse(Call<Void> call, Response<Void> res) {
                 try {
-                    if (res.isSuccessful()) {
+                    if (res.isSuccessful() || res.code()==404) {
                         onOk.run();
                     } else if (res.code()==401) {
                         android.widget.Toast.makeText(requireContext(), "로그인이 만료되었습니다.", android.widget.Toast.LENGTH_SHORT).show();
@@ -334,12 +336,13 @@ public class ReserveDialogFragment extends DialogFragment {
 
     private boolean notEmpty(String s) { return s != null && !s.trim().isEmpty(); }
 
-    private void updateStarIcon(android.widget.ImageView star, boolean isFav) {
-        star.setImageResource(isFav ? R.drawable.ic_star_filled : R.drawable.ic_star_outline);
-        int color = ContextCompat.getColor(
-                requireContext(),
-                isFav ? R.color.blue_500 : R.color.gray_500
-        );
-        star.setColorFilter(color);
+    /** 바텀시트와 동일한 비주얼 적용 */
+    private void applyStar(android.widget.ImageView star, boolean fav) {
+        star.setImageResource(R.drawable.ic_star2);
+        int color = fav ? Color.parseColor("#FFC107") : Color.parseColor("#BDBDBD");
+        ImageViewCompat.setImageTintList(star, ColorStateList.valueOf(color));
+        String tip = fav ? "즐겨찾기 제거" : "즐겨찾기 추가";
+        star.setContentDescription(tip);
+        TooltipCompat.setTooltipText(star, tip);
     }
 }

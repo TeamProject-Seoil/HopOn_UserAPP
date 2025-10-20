@@ -15,16 +15,20 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.view.View;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.GravityCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.widget.ImageViewCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -65,6 +69,7 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+
 /**
  * MainActivity
  * - 지도/주변정류장
@@ -84,6 +89,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     // 위치 권한
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1000;
     private FusedLocationSource locationSource;
+
+
+    // 바텀시트 즐겨찾기 상태 동기화용
+    @Nullable private ReservationResponse boundReservation = null;
+    private boolean bottomSheetIsFav = false;
+    @Nullable private Long bottomSheetFavId = null;
 
     // 위치 기준
     private static final int   RADIUS_M            = 1000;
@@ -611,6 +622,196 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (btnCancel != null) {
             btnCancel.setOnClickListener(v -> onClickCancel());
         }
+        wireFavoriteInBottomSheet(r);
+        boundReservation = r;
+    }
+
+    // ===== 즐겨찾기: 고정 바텀시트 토글 =====
+    private void wireFavoriteInBottomSheet(ReservationResponse r) {
+        if (bottomSheet == null) return;
+        ImageView star = bottomSheet.findViewById(R.id.btnFavoriteActive);
+        if (star == null) return;
+
+        // 현재 상태 계산 후 필드에 저장
+        Long matchedId = findFavoriteIdFor(r);
+        bottomSheetIsFav = matchedId != null;
+        bottomSheetFavId = matchedId;
+        applyStarTint(star, bottomSheetIsFav);
+
+        star.setOnClickListener(v -> {
+            String access = TokenStore.getAccess(getApplicationContext());
+            if (TextUtils.isEmpty(access)) {
+                Toast.makeText(this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+                LoginRequiredDialogFragment.show(getSupportFragmentManager());
+                return;
+            }
+            String bearer = "Bearer " + access;
+
+            if (!bottomSheetIsFav) {
+                // 추가
+                ApiService.FavoriteCreateRequest body = new ApiService.FavoriteCreateRequest(
+                        r.routeId, r.direction,
+                        r.boardStopId, r.boardStopName, r.boardArsId,
+                        r.destStopId,  r.destStopName,  r.destArsId,
+                        r.routeName
+                );
+                ApiClient.get().addFavorite(bearer, body)
+                        .enqueue(new retrofit2.Callback<ApiService.FavoriteResponse>() {
+                            @Override public void onResponse(retrofit2.Call<ApiService.FavoriteResponse> call,
+                                                             retrofit2.Response<ApiService.FavoriteResponse> res) {
+                                if (res.isSuccessful() && res.body()!=null) {
+                                    bottomSheetIsFav = true;
+                                    bottomSheetFavId = res.body().id;
+                                    favDetailById.put(res.body().id, res.body());
+                                    fetchFavoritesIntoDrawer(); // 드로어+별 동기화
+                                    applyStarTint(star, true);
+                                    Toast.makeText(MainActivity.this, "즐겨찾기에 추가되었습니다.", Toast.LENGTH_SHORT).show();
+                                } else if (res.code()==409) {
+                                    fetchFavoritesIntoDrawer();
+                                    bottomSheetIsFav = true;
+                                    applyStarTint(star, true);
+                                    Toast.makeText(MainActivity.this, "이미 즐겨찾기에 있습니다.", Toast.LENGTH_SHORT).show();
+                                } else if (res.code()==401) {
+                                    TokenStore.clearAccess(getApplicationContext());
+                                    LoginRequiredDialogFragment.show(getSupportFragmentManager());
+                                } else {
+                                    Toast.makeText(MainActivity.this, "추가 실패 ("+res.code()+")", Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                            @Override public void onFailure(retrofit2.Call<ApiService.FavoriteResponse> call, Throwable t) {
+                                Toast.makeText(MainActivity.this, "네트워크 오류로 추가 실패", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+            } else {
+                // 삭제
+                Long idToDelete = bottomSheetFavId;
+                if (idToDelete == null) {
+                    resolveFavoriteIdThen(bearer, r.routeId, r.direction, r.boardStopId, r.destStopId, id -> {
+                        if (id == null) {
+                            Toast.makeText(MainActivity.this, "삭제할 즐겨찾기를 찾지 못했습니다.", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        doDeleteFavorite(bearer, id, star, new boolean[]{bottomSheetIsFav}, new Long[]{bottomSheetFavId});
+                        // 삭제 성공 시 필드도 갱신
+                        bottomSheetIsFav = false;
+                        bottomSheetFavId = null;
+                        applyStarTint(star, false);
+                    });
+                } else {
+                    ApiClient.get().deleteFavorite(bearer, idToDelete)
+                            .enqueue(new retrofit2.Callback<Void>() {
+                                @Override public void onResponse(retrofit2.Call<Void> call, retrofit2.Response<Void> res) {
+                                    if (res.isSuccessful() || res.code()==404) {
+                                        bottomSheetIsFav = false;
+                                        bottomSheetFavId = null;
+                                        favDetailById.remove(idToDelete);
+                                        fetchFavoritesIntoDrawer();
+                                        applyStarTint(star, false);
+                                        Toast.makeText(MainActivity.this, "즐겨찾기에서 제거되었습니다.", Toast.LENGTH_SHORT).show();
+                                    } else if (res.code()==401) {
+                                        TokenStore.clearAccess(getApplicationContext());
+                                        LoginRequiredDialogFragment.show(getSupportFragmentManager());
+                                    } else {
+                                        Toast.makeText(MainActivity.this, "삭제 실패 ("+res.code()+")", Toast.LENGTH_SHORT).show();
+                                    }
+                                }
+                                @Override public void onFailure(retrofit2.Call<Void> call, Throwable t) {
+                                    Toast.makeText(MainActivity.this, "네트워크 오류로 삭제 실패", Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                }
+            }
+        });
+    }
+
+
+    private void doDeleteFavorite(String bearer, long id, ImageView star, boolean[] isFav, Long[] favIdHolder) {
+        ApiClient.get().deleteFavorite(bearer, id)
+                .enqueue(new retrofit2.Callback<Void>() {
+                    @Override public void onResponse(retrofit2.Call<Void> call, retrofit2.Response<Void> res) {
+                        if (res.isSuccessful() || res.code()==404) {
+                            isFav[0] = false;
+                            favIdHolder[0] = null;
+                            favDetailById.remove(id);
+                            fetchFavoritesIntoDrawer();
+                            applyStarTint(star, false);
+                            Toast.makeText(MainActivity.this, "즐겨찾기에서 제거되었습니다.", Toast.LENGTH_SHORT).show();
+
+                        } else if (res.code()==401) {
+                            TokenStore.clearAccess(getApplicationContext());
+                            LoginRequiredDialogFragment.show(getSupportFragmentManager());
+
+                        } else {
+                            Toast.makeText(MainActivity.this, "삭제 실패 ("+res.code()+")", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                    @Override public void onFailure(retrofit2.Call<Void> call, Throwable t) {
+                        Toast.makeText(MainActivity.this, "네트워크 오류로 삭제 실패", Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    @Nullable
+    private Long findFavoriteIdFor(ReservationResponse r) {
+        for (Map.Entry<Long, ApiService.FavoriteResponse> e : favDetailById.entrySet()) {
+            ApiService.FavoriteResponse f = e.getValue();
+            boolean same =
+                    TextUtils.equals(f.routeId, r.routeId) &&
+                            TextUtils.equals(nullToEmpty(f.direction), nullToEmpty(r.direction)) &&
+                            TextUtils.equals(f.boardStopId, r.boardStopId) &&
+                            TextUtils.equals(f.destStopId, r.destStopId);
+            if (same) return e.getKey();
+        }
+        return null;
+    }
+
+    private interface IdCb { void onResolved(@Nullable Long id); }
+    private void resolveFavoriteIdThen(String bearer,
+                                       String routeId, @Nullable String direction,
+                                       String boardStopId, String destStopId,
+                                       IdCb cb) {
+        ApiClient.get().getFavorites(bearer)
+                .enqueue(new retrofit2.Callback<List<ApiService.FavoriteResponse>>() {
+                    @Override public void onResponse(retrofit2.Call<List<ApiService.FavoriteResponse>> call,
+                                                     retrofit2.Response<List<ApiService.FavoriteResponse>> res) {
+                        if (!res.isSuccessful() || res.body()==null) { cb.onResolved(null); return; }
+                        for (ApiService.FavoriteResponse f : res.body()) {
+                            boolean same =
+                                    TextUtils.equals(f.routeId, routeId) &&
+                                            TextUtils.equals(nullToEmpty(f.direction), nullToEmpty(direction)) &&
+                                            TextUtils.equals(f.boardStopId, boardStopId) &&
+                                            TextUtils.equals(f.destStopId, destStopId);
+                            if (same) { cb.onResolved(f.id); return; }
+                        }
+                        cb.onResolved(null);
+                    }
+                    @Override public void onFailure(retrofit2.Call<List<ApiService.FavoriteResponse>> call, Throwable t) {
+                        cb.onResolved(null);
+                    }
+                });
+    }
+
+    private static String nullToEmpty(@Nullable String s) { return s == null ? "" : s; }
+
+    private void applyStarTint(ImageView star, boolean fav) {
+        if (star == null) return;
+        int color = fav ? Color.parseColor("#FFC107") : Color.parseColor("#BDBDBD");
+        ImageViewCompat.setImageTintList(star, ColorStateList.valueOf(color));
+        star.setContentDescription(fav ? "즐겨찾기 제거" : "즐겨찾기 추가");
+        star.animate().scaleX(1.1f).scaleY(1.1f).setDuration(100)
+                .withEndAction(() -> star.animate().scaleX(1f).scaleY(1f).setDuration(80).start())
+                .start();
+    }
+
+    private void syncBottomSheetFavoriteStateIfNeeded() {
+        if (bottomSheet == null || boundReservation == null) return;
+        ImageView star = bottomSheet.findViewById(R.id.btnFavoriteActive);
+        if (star == null) return;
+
+        Long matched = findFavoriteIdFor(boundReservation);
+        bottomSheetIsFav = matched != null;
+        bottomSheetFavId = matched;
+        applyStarTint(star, bottomSheetIsFav);
     }
 
     private void initBottomSheetViews() {
@@ -862,6 +1063,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         }
                         if (favAdapter != null) favAdapter.setItems(favItems);
                         updateDrawerEmpty();
+                        syncBottomSheetFavoriteStateIfNeeded();
                     }
 
                     @Override
@@ -869,6 +1071,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         Toast.makeText(MainActivity.this, "즐겨찾기 불러오기 실패", Toast.LENGTH_SHORT).show();
                         if (favAdapter != null) favAdapter.setItems(favItems);
                         updateDrawerEmpty();
+                        syncBottomSheetFavoriteStateIfNeeded();
                     }
                 });
     }
@@ -984,6 +1187,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         dialog.setOnActionListener(new ReserveCardDialogFragment.OnActionListener() {
             @Override public void onReserveClicked(boolean boardingAlarm, boolean dropOffAlarm) {
+                dialog.dismissAllowingStateLoss();
                 createReservationFromFavorite(f);
             }
             @Override public void onCancelClicked() { /* no-op */ }
@@ -1029,6 +1233,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         dialog.setOnActionListener(new ReserveCardDialogFragment.OnActionListener() {
             @Override public void onReserveClicked(boolean boardingAlarm, boolean dropOffAlarm) {
+                dialog.dismissAllowingStateLoss();
                 createReservationFromRecent(item);
             }
             @Override public void onCancelClicked() { /* no-op */ }
@@ -1081,7 +1286,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             @Override public void onResponse(Call<ReservationResponse> call, Response<ReservationResponse> resp) {
                 if (resp.isSuccessful() && resp.body()!=null) {
                     getSharedPreferences("app", MODE_PRIVATE).edit().putBoolean("JUST_RESERVED", true).apply();
-                    Toast.makeText(MainActivity.this, "예약이 완료되었습니다.", Toast.LENGTH_SHORT).show();
                     fetchAndShowActiveReservation();
                     if (drawerLayout != null) drawerLayout.closeDrawer(GravityCompat.START);
                 } else {
@@ -1126,7 +1330,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             @Override public void onResponse(Call<ReservationResponse> call, Response<ReservationResponse> resp) {
                 if (resp.isSuccessful() && resp.body()!=null) {
                     getSharedPreferences("app", MODE_PRIVATE).edit().putBoolean("JUST_RESERVED", true).apply();
-                    Toast.makeText(MainActivity.this, "예약이 완료되었습니다.", Toast.LENGTH_SHORT).show();
                     fetchAndShowActiveReservation();
                     if (drawerLayout != null) drawerLayout.closeDrawer(GravityCompat.START);
                 } else {

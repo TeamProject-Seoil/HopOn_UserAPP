@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/testmap/ui/ReserveCardDialogFragment.java
 package com.example.testmap.ui;
 
 import android.app.Dialog;
@@ -14,8 +13,11 @@ import android.view.WindowManager;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
-import androidx.core.content.ContextCompat;
+import androidx.appcompat.widget.TooltipCompat;
+import androidx.core.widget.ImageViewCompat;
 import androidx.fragment.app.DialogFragment;
+
+import android.content.res.ColorStateList;
 
 import com.example.testmap.R;
 import com.example.testmap.service.ApiClient;
@@ -137,12 +139,12 @@ public class ReserveCardDialogFragment extends DialogFragment {
         });
 
         // ===== 즐겨찾기 토글 =====
-        android.widget.ImageView star = v.findViewById(R.id.btnFavorite);
+        android.widget.ImageView star = v.findViewById(R.id.btnFavoriteActive);
 
         final boolean[] isFav = { args.getBoolean(ARG_IS_FAVORITE, false) };
         final long[] favId    = { args.containsKey(ARG_FAVORITE_ID) ? args.getLong(ARG_FAVORITE_ID) : -1L };
 
-        updateStarIcon(star, isFav[0]);
+        applyStar(star, isFav[0]);
 
         star.setOnClickListener(view -> {
             // 서버 연동 가능한지 체크
@@ -156,13 +158,14 @@ public class ReserveCardDialogFragment extends DialogFragment {
 
             if (bearer == null) {
                 android.widget.Toast.makeText(requireContext(), "로그인이 필요합니다.", android.widget.Toast.LENGTH_SHORT).show();
+                LoginRequiredDialogFragment.show(getParentFragmentManager());
                 return;
             }
 
             if (!hasAllParams) {
                 // 필수 값 없으면 UI만 토글
                 isFav[0] = !isFav[0];
-                updateStarIcon(star, isFav[0]);
+                applyStar(star, isFav[0]);
                 android.widget.Toast
                         .makeText(requireContext(), "즐겨찾기 정보가 부족해 서버 동기화 없이 표시만 바꿔요.", android.widget.Toast.LENGTH_SHORT)
                         .show();
@@ -182,7 +185,7 @@ public class ReserveCardDialogFragment extends DialogFragment {
                         deleteFavorite(bearer, favId[0], () -> {
                             isFav[0] = false;
                             favId[0] = -1L;
-                            updateStarIcon(star, false);
+                            applyStar(star, false);
                             if (listener != null) listener.onFavoriteChanged(false, null);
                         });
                     });
@@ -190,7 +193,7 @@ public class ReserveCardDialogFragment extends DialogFragment {
                     deleteFavorite(bearer, favId[0], () -> {
                         isFav[0] = false;
                         favId[0] = -1L;
-                        updateStarIcon(star, false);
+                        applyStar(star, false);
                         if (listener != null) listener.onFavoriteChanged(false, null);
                     });
                 }
@@ -212,17 +215,20 @@ public class ReserveCardDialogFragment extends DialogFragment {
                         if (res.isSuccessful() && res.body()!=null) {
                             isFav[0] = true;
                             favId[0] = res.body().id;
-                            updateStarIcon(star, true);
+                            applyStar(star, true);
                             if (listener != null) listener.onFavoriteChanged(true, favId[0]);
                         } else if (res.code()==409) {
                             // 이미 존재 → 목록 조회로 ID 파악 후 상태 동기화
                             resolveFavoriteIdThen(bearer, args, id -> {
                                 isFav[0] = true;
                                 if (id != null) favId[0] = id;
-                                updateStarIcon(star, true);
+                                applyStar(star, true);
                                 if (listener != null) listener.onFavoriteChanged(true, favId[0] > 0 ? favId[0] : null);
                                 android.widget.Toast.makeText(requireContext(), "이미 즐겨찾기에 있어요.", android.widget.Toast.LENGTH_SHORT).show();
                             });
+                        } else if (res.code()==401) {
+                            android.widget.Toast.makeText(requireContext(), "로그인이 만료되었습니다.", android.widget.Toast.LENGTH_SHORT).show();
+                            LoginRequiredDialogFragment.show(getParentFragmentManager());
                         } else {
                             android.widget.Toast.makeText(requireContext(), "추가 실패("+res.code()+")", android.widget.Toast.LENGTH_SHORT).show();
                         }
@@ -277,8 +283,11 @@ public class ReserveCardDialogFragment extends DialogFragment {
     private void deleteFavorite(String bearer, long id, Runnable onOk) {
         ApiClient.get().deleteFavorite(bearer, id).enqueue(new Callback<Void>() {
             @Override public void onResponse(Call<Void> call, Response<Void> res) {
-                if (res.isSuccessful()) {
+                if (res.isSuccessful() || res.code()==404) {
                     onOk.run();
+                } else if (res.code()==401) {
+                    android.widget.Toast.makeText(requireContext(), "로그인이 만료되었습니다.", android.widget.Toast.LENGTH_SHORT).show();
+                    LoginRequiredDialogFragment.show(getParentFragmentManager());
                 } else {
                     android.widget.Toast.makeText(requireContext(), "삭제 실패("+res.code()+")", android.widget.Toast.LENGTH_SHORT).show();
                 }
@@ -309,12 +318,13 @@ public class ReserveCardDialogFragment extends DialogFragment {
         return s == null || s.trim().isEmpty();
     }
 
-    private void updateStarIcon(android.widget.ImageView star, boolean isFav) {
-        star.setImageResource(isFav ? R.drawable.ic_star_filled : R.drawable.ic_star_outline);
-        int color = ContextCompat.getColor(
-                requireContext(),
-                isFav ? R.color.blue_500 : R.color.gray_500
-        );
-        star.setColorFilter(color);
+    /** 바텀시트와 동일한 비주얼 적용 */
+    private void applyStar(android.widget.ImageView star, boolean fav) {
+        star.setImageResource(R.drawable.ic_star2);
+        int color = fav ? Color.parseColor("#FFC107") : Color.parseColor("#BDBDBD");
+        ImageViewCompat.setImageTintList(star, ColorStateList.valueOf(color));
+        String tip = fav ? "즐겨찾기 제거" : "즐겨찾기 추가";
+        star.setContentDescription(tip);
+        TooltipCompat.setTooltipText(star, tip);
     }
 }

@@ -11,7 +11,7 @@
     app:cardBackgroundColor="@android:color/white"
     app:contentPadding="16dp">
 
-    <!-- ↓↓↓ 기존 내용 그대로 (루트 LinearLayout의 padding/elevation/background는 카드가 가져갔으므로 제거) -->
+    <!-- ↓↓↓ 기존 내용 그대로 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -56,12 +56,19 @@
                     android:textColor="#444444" />
             </LinearLayout>
 
-            <!-- 즐겨찾기 버튼 -->
+            <!-- 즐겨찾기 버튼 (활성 바텀시트용) -->
             <ImageView
-                android:id="@+id/btnFavorite"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:src="@drawable/ic_star2" />
+                android:id="@+id/btnFavoriteActive"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:padding="6dp"
+                android:minWidth="40dp"
+                android:minHeight="40dp"
+                android:src="@drawable/ic_star2"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="즐겨찾기 추가"
+                app:tint="#BDBDBD"
+                app:tooltipText="즐겨찾기 추가" />
         </LinearLayout>
 
         <!-- 구분선 -->
@@ -123,8 +130,6 @@
                 app:layout_constraintStart_toEndOf="@id/riding_image"
                 app:layout_constraintTop_toBottomOf="@id/riding" />
         </androidx.constraintlayout.widget.ConstraintLayout>
-
-        <!-- API로 채울 승차 정류장 -->
 
         <!-- 하차 정보 -->
         <androidx.constraintlayout.widget.ConstraintLayout

@@ -2,12 +2,10 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/rounded_top_background"
     android:padding="16dp">
-
 
     <!-- 상단: 닫기 버튼 -->
     <ImageButton
@@ -15,7 +13,7 @@
         android:layout_width="wrap_content"
         android:layout_height="24dp"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="닫기"
+        android:contentDescription="@string/close"
         app:srcCompat="@drawable/exit_button"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -30,7 +28,7 @@
         android:orientation="horizontal"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/exit_button">
+        app:layout_constraintTop_toBottomOf="@id/exit_button">
 
         <!-- 버스 아이콘 -->
         <ImageView
@@ -64,20 +62,21 @@
                 android:textSize="14sp" />
         </LinearLayout>
 
-        <!-- 즐겨찾기 버튼 -->
+        <!-- 즐겨찾기 버튼 (스타일 통일) -->
         <ImageView
-            android:id="@+id/btnFavorite"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:src="@drawable/ic_star2" />
+            android:id="@+id/btnFavoriteActive"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:padding="4dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/favorite"
+            android:tooltipText="@string/favorite"
+            android:src="@drawable/ic_star2"
+            app:tint="#BDBDBD" />
+        <!-- 기본은 회색(#BDBDBD); 코드에서 선택 시 #FFC107로 틴트 변경 -->
     </LinearLayout>
 
-
-    <!-- API로 채울 승차 정류장 -->
-
-
-
-    <!-- 하차 정보 -->
+    <!-- 승차 정보 -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/constraintLayout"
         android:layout_width="match_parent"
@@ -86,9 +85,8 @@
         android:padding="16dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/linearLayout2">
+        app:layout_constraintTop_toBottomOf="@id/linearLayout2">
 
-        <!-- 이미지뷰 -->
         <ImageView
             android:id="@+id/riding_image"
             android:layout_width="20dp"
@@ -97,7 +95,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- 텍스트뷰1 -->
         <TextView
             android:id="@+id/riding"
             android:layout_width="wrap_content"
@@ -110,7 +107,6 @@
             app:layout_constraintStart_toEndOf="@id/riding_image"
             app:layout_constraintTop_toTopOf="@id/riding_image" />
 
-        <!-- 텍스트뷰2 -->
         <TextView
             android:id="@+id/riging_station"
             android:layout_width="wrap_content"
@@ -123,7 +119,6 @@
             app:layout_constraintStart_toEndOf="@id/riding"
             app:layout_constraintTop_toTopOf="@id/riding" />
 
-        <!-- 텍스트뷰3 -->
         <TextView
             android:id="@+id/arrival_information_riding"
             android:layout_width="0dp"
@@ -138,6 +133,7 @@
             app:layout_constraintTop_toBottomOf="@id/riding" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <!-- 하차 정보 -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/constraintLayout2"
         android:layout_width="match_parent"
@@ -145,9 +141,9 @@
         android:background="@android:color/white"
         android:padding="16dp"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/constraintLayout">
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/constraintLayout">
 
-        <!-- 이미지뷰 -->
         <ImageView
             android:id="@+id/out_image"
             android:layout_width="20dp"
@@ -156,7 +152,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- 텍스트뷰1 -->
         <TextView
             android:id="@+id/out"
             android:layout_width="wrap_content"
@@ -169,7 +164,6 @@
             app:layout_constraintStart_toEndOf="@id/out_image"
             app:layout_constraintTop_toTopOf="@id/out_image" />
 
-        <!-- 텍스트뷰2 -->
         <TextView
             android:id="@+id/out_station"
             android:layout_width="wrap_content"
@@ -182,7 +176,6 @@
             app:layout_constraintStart_toEndOf="@id/out"
             app:layout_constraintTop_toTopOf="@id/out" />
 
-        <!-- 텍스트뷰3 -->
         <TextView
             android:id="@+id/arrival_information"
             android:layout_width="0dp"
@@ -204,7 +197,6 @@
         android:layout_marginStart="100dp"
         android:layout_marginTop="16dp"
         android:layout_marginEnd="100dp"
-        android:layout_weight="1"
         android:backgroundTint="#2196F3"
         android:elevation="4dp"
         android:text="알림취소"
@@ -212,9 +204,7 @@
         android:textSize="18sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/constraintLayout2" />
-
+        app:layout_constraintTop_toBottomOf="@id/constraintLayout2" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
