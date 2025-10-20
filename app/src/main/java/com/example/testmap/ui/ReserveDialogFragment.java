@@ -144,10 +144,13 @@ public class ReserveDialogFragment extends DialogFragment {
         // ===== 즐겨찾기 토글 =====
         final boolean[] isFav = { args.getBoolean(ARG_IS_FAVORITE, false) };
         final long[] favId    = { args.containsKey(ARG_FAVORITE_ID) ? args.getLong(ARG_FAVORITE_ID) : -1L };
+        final boolean[] busy  = { false }; // 중복 요청 방지
 
         updateStarIcon(star, isFav[0]);
 
         star.setOnClickListener(v -> {
+            if (busy[0]) return; // 요청 중이면 무시
+
             boolean hasAllParams =
                     notEmpty(args.getString(ARG_ROUTE_ID)) &&
                             notEmpty(args.getString(ARG_BOARD_ID)) &&
@@ -158,6 +161,7 @@ public class ReserveDialogFragment extends DialogFragment {
 
             if (bearer == null) {
                 android.widget.Toast.makeText(requireContext(), "로그인이 필요합니다.", android.widget.Toast.LENGTH_SHORT).show();
+                LoginRequiredDialogFragment.show(getParentFragmentManager());
                 return;
             }
 
@@ -168,32 +172,43 @@ public class ReserveDialogFragment extends DialogFragment {
                 return;
             }
 
+            // UI 가드
+            busy[0] = true;
+            star.setEnabled(false);
+
             if (isFav[0]) {
-                // 삭제
+                // ===== 삭제 =====
+                Runnable finalizeUi = () -> {
+                    isFav[0] = false;
+                    favId[0] = -1L;
+                    updateStarIcon(star, false);
+                    if (listener != null) listener.onFavoriteChanged(false, null);
+                    busy[0] = false;
+                    star.setEnabled(true);
+                };
+
                 if (favId[0] <= 0) {
                     resolveFavoriteIdThen(bearer, args, id -> {
                         if (id == null) {
                             android.widget.Toast.makeText(requireContext(), "삭제할 즐겨찾기를 찾지 못했습니다.", android.widget.Toast.LENGTH_SHORT).show();
+                            busy[0] = false;
+                            star.setEnabled(true);
                             return;
                         }
                         favId[0] = id;
-                        deleteFavorite(bearer, favId[0], () -> {
-                            isFav[0] = false;
-                            favId[0] = -1L;
-                            updateStarIcon(star, false);
-                            if (listener != null) listener.onFavoriteChanged(false, null);
+                        deleteFavoriteWith401(bearer, favId[0], finalizeUi, () -> {
+                            busy[0] = false;
+                            star.setEnabled(true);
                         });
                     });
                 } else {
-                    deleteFavorite(bearer, favId[0], () -> {
-                        isFav[0] = false;
-                        favId[0] = -1L;
-                        updateStarIcon(star, false);
-                        if (listener != null) listener.onFavoriteChanged(false, null);
+                    deleteFavoriteWith401(bearer, favId[0], finalizeUi, () -> {
+                        busy[0] = false;
+                        star.setEnabled(true);
                     });
                 }
             } else {
-                // 추가
+                // ===== 추가 =====
                 ApiService.FavoriteCreateRequest body = new ApiService.FavoriteCreateRequest(
                         args.getString(ARG_ROUTE_ID),
                         args.getString(ARG_DIRECTION),
@@ -213,6 +228,7 @@ public class ReserveDialogFragment extends DialogFragment {
                             updateStarIcon(star, true);
                             if (listener != null) listener.onFavoriteChanged(true, favId[0]);
                         } else if (res.code()==409) {
+                            // 이미 존재 → id 조회해서 동기화
                             resolveFavoriteIdThen(bearer, args, id -> {
                                 isFav[0] = true;
                                 if (id != null) favId[0] = id;
@@ -220,12 +236,19 @@ public class ReserveDialogFragment extends DialogFragment {
                                 if (listener != null) listener.onFavoriteChanged(true, favId[0] > 0 ? favId[0] : null);
                                 android.widget.Toast.makeText(requireContext(), "이미 즐겨찾기에 있어요.", android.widget.Toast.LENGTH_SHORT).show();
                             });
+                        } else if (res.code()==401) {
+                            android.widget.Toast.makeText(requireContext(), "로그인이 만료되었습니다.", android.widget.Toast.LENGTH_SHORT).show();
+                            LoginRequiredDialogFragment.show(getParentFragmentManager());
                         } else {
                             android.widget.Toast.makeText(requireContext(), "추가 실패("+res.code()+")", android.widget.Toast.LENGTH_SHORT).show();
                         }
+                        busy[0] = false;
+                        star.setEnabled(true);
                     }
                     @Override public void onFailure(Call<ApiService.FavoriteResponse> call, Throwable t) {
                         android.widget.Toast.makeText(requireContext(), "네트워크 오류", android.widget.Toast.LENGTH_SHORT).show();
+                        busy[0] = false;
+                        star.setEnabled(true);
                     }
                 });
             }
@@ -270,17 +293,25 @@ public class ReserveDialogFragment extends DialogFragment {
         });
     }
 
-    private void deleteFavorite(String bearer, long id, Runnable onOk) {
+    private void deleteFavoriteWith401(String bearer, long id, Runnable onOk, Runnable onFinally) {
         ApiClient.get().deleteFavorite(bearer, id).enqueue(new Callback<Void>() {
             @Override public void onResponse(Call<Void> call, Response<Void> res) {
-                if (res.isSuccessful()) {
-                    onOk.run();
-                } else {
-                    android.widget.Toast.makeText(requireContext(), "삭제 실패("+res.code()+")", android.widget.Toast.LENGTH_SHORT).show();
+                try {
+                    if (res.isSuccessful()) {
+                        onOk.run();
+                    } else if (res.code()==401) {
+                        android.widget.Toast.makeText(requireContext(), "로그인이 만료되었습니다.", android.widget.Toast.LENGTH_SHORT).show();
+                        LoginRequiredDialogFragment.show(getParentFragmentManager());
+                    } else {
+                        android.widget.Toast.makeText(requireContext(), "삭제 실패("+res.code()+")", android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                } finally {
+                    if (onFinally != null) onFinally.run();
                 }
             }
             @Override public void onFailure(Call<Void> call, Throwable t) {
                 android.widget.Toast.makeText(requireContext(), "네트워크 오류", android.widget.Toast.LENGTH_SHORT).show();
+                if (onFinally != null) onFinally.run();
             }
         });
     }

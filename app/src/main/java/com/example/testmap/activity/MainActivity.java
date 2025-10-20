@@ -43,6 +43,7 @@ import com.example.testmap.service.ApiClient;
 import com.example.testmap.service.ApiService;
 import com.example.testmap.ui.ArrivalsBottomSheet;
 import com.example.testmap.ui.ReserveCardDialogFragment;
+import com.example.testmap.ui.LoginRequiredDialogFragment;
 import com.example.testmap.util.TokenStore;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.naver.maps.geometry.LatLng;
@@ -173,8 +174,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             favoriteButton.setOnClickListener(view -> {
                 String access = TokenStore.getAccess(MainActivity.this);
                 if (TextUtils.isEmpty(access)) {
-                    Toast.makeText(MainActivity.this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
-                    startActivity(new Intent(MainActivity.this, LoginActivity.class));
+                    // 로그인 필요 다이얼로그
+                    LoginRequiredDialogFragment.show(getSupportFragmentManager());
                     return;
                 }
                 if (layoutMenu != null)      layoutMenu.setVisibility(View.GONE);
@@ -625,6 +626,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         String access = TokenStore.getAccess(getApplicationContext());
         if (TextUtils.isEmpty(access)) {
             Toast.makeText(this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+            LoginRequiredDialogFragment.show(getSupportFragmentManager());
             return;
         }
         if (currentReservationId == null) {
@@ -656,6 +658,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             TokenStore.clearAccess(getApplicationContext());
                             updateReservationSheetVisibility(false, false);
                             Toast.makeText(MainActivity.this, "로그인이 만료되었습니다.", Toast.LENGTH_SHORT).show();
+                            LoginRequiredDialogFragment.show(getSupportFragmentManager());
                         } else if (res.code()==409) {
                             Toast.makeText(MainActivity.this, "취소할 예약이 없거나 취소할 수 없습니다.", Toast.LENGTH_SHORT).show();
                         } else {
@@ -727,14 +730,23 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                         Long id = favIds.get(position);
                         String access = TokenStore.getAccess(MainActivity.this);
-                        if (TextUtils.isEmpty(access)) return;
+                        if (TextUtils.isEmpty(access)) {
+                            LoginRequiredDialogFragment.show(getSupportFragmentManager());
+                            return;
+                        }
 
                         ApiClient.get().deleteFavorite("Bearer " + access, id)
                                 .enqueue(new retrofit2.Callback<Void>() {
-                                    @Override public void onResponse(Call<Void> call, Response<Void> res) { /* no-op */ }
-                                    @Override public void onFailure (Call<Void> call, Throwable t)       { /* no-op */ }
+                                    @Override public void onResponse(Call<Void> call, Response<Void> res) {
+                                        // 서버 결과와 무관하게 최신 상태 재조회
+                                        fetchFavoritesIntoDrawer();
+                                    }
+                                    @Override public void onFailure (Call<Void> call, Throwable t) {
+                                        fetchFavoritesIntoDrawer();
+                                    }
                                 });
 
+                        // 낙관적 UI 제거 애니메이션
                         RecyclerView.ViewHolder vh = favRecycler.findViewHolderForAdapterPosition(position);
                         if (vh != null) {
                             View card = vh.itemView;
@@ -743,8 +755,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                     .scaleY(0.92f)
                                     .setDuration(180)
                                     .withEndAction(() -> {
-                                        favItems.remove(position);
-                                        favIds.remove(position);
+                                        if (position < favItems.size()) favItems.remove(position);
+                                        if (position < favIds.size())   favIds.remove(position);
                                         if (favAdapter != null) favAdapter.setItems(favItems);
                                         card.setAlpha(1f);
                                         card.setScaleY(1f);
@@ -752,8 +764,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                     })
                                     .start();
                         } else {
-                            favItems.remove(position);
-                            favIds.remove(position);
+                            if (position < favItems.size()) favItems.remove(position);
+                            if (position < favIds.size())   favIds.remove(position);
                             if (favAdapter != null) favAdapter.setItems(favItems);
                             updateDrawerEmpty();
                         }
@@ -901,6 +913,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         String access = TokenStore.getAccess(this);
         if (TextUtils.isEmpty(access)) {
             Toast.makeText(this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
+            LoginRequiredDialogFragment.show(getSupportFragmentManager());
             return;
         }
 
@@ -922,29 +935,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     public void onResponse(Call<ApiService.FavoriteResponse> call,
                                            Response<ApiService.FavoriteResponse> res) {
                         if (res.isSuccessful() && res.body() != null) {
-                            ApiService.FavoriteResponse f = res.body();
-
-                            if (favIds.contains(f.id)) {
-                                Toast.makeText(MainActivity.this, "이미 즐겨찾기에 있습니다.", Toast.LENGTH_SHORT).show();
-                                return;
-                            }
-
-                            String title = !TextUtils.isEmpty(f.routeName) ? f.routeName : f.routeId;
-                            String sub   = safeJoin(f.boardStopName, " → ", f.destStopName);
-                            String dir   = TextUtils.isEmpty(f.direction) ? "방면 정보 없음" : f.direction;
-                            FavoriteItem newItem = new FavoriteItem(title, sub, dir);
-
-                            favIds.add(0, f.id);
-                            favItems.add(0, newItem);
-                            favDetailById.put(f.id, f);
-
-                            if (favAdapter != null) favAdapter.insertAtTop(newItem);
-                            if (favRecycler != null) favRecycler.smoothScrollToPosition(0);
-                            updateDrawerEmpty();
-
+                            // 추가 성공 → 즉시 서버 상태 재조회
+                            fetchFavoritesIntoDrawer();
                             Toast.makeText(MainActivity.this, "즐겨찾기에 추가되었습니다.", Toast.LENGTH_SHORT).show();
 
                         } else if (res.code() == 409) {
+                            // 이미 있음 → 동기화(혹시 다른 기기에서 변경됐을 수 있음)
+                            fetchFavoritesIntoDrawer();
                             Toast.makeText(MainActivity.this, "이미 즐겨찾기에 있습니다.", Toast.LENGTH_SHORT).show();
                         } else {
                             Toast.makeText(MainActivity.this, "추가 실패 (" + res.code() + ")", Toast.LENGTH_SHORT).show();
@@ -969,26 +966,84 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             Toast.makeText(this, "즐겨찾기 상세를 불러오지 못했습니다.", Toast.LENGTH_SHORT).show();
             return;
         }
-        String routeName = !TextUtils.isEmpty(f.routeName) ? f.routeName : f.routeId;
-        showReserveCard(
-                routeName,
-                TextUtils.isEmpty(f.direction) ? "" : f.direction,
-                TextUtils.isEmpty(f.boardStopName) ? "" : f.boardStopName,
-                TextUtils.isEmpty(f.destStopName) ? "" : f.destStopName,
-                () -> createReservationFromFavorite(f)
+
+        String busNo = !TextUtils.isEmpty(f.routeName) ? f.routeName : f.routeId;
+        String dir   = TextUtils.isEmpty(f.direction) ? "" : f.direction;
+        String from  = TextUtils.isEmpty(f.boardStopName) ? "" : f.boardStopName;
+        String to    = TextUtils.isEmpty(f.destStopName)  ? "" : f.destStopName;
+
+        // ★ 서버 연동 가능한 전체 파라미터로 다이얼로그 생성
+        ReserveCardDialogFragment dialog = ReserveCardDialogFragment.newInstanceFull(
+                /* 표시용 */ busNo, dir, from, to,
+                /* 서버용 */ f.routeId, f.direction,
+                f.boardStopId, f.boardStopName, f.boardArsId,
+                f.destStopId,  f.destStopName,  f.destArsId,
+                f.routeName,
+                /* 초기 즐겨찾기 상태 */ true, f.id
         );
+
+        dialog.setOnActionListener(new ReserveCardDialogFragment.OnActionListener() {
+            @Override public void onReserveClicked(boolean boardingAlarm, boolean dropOffAlarm) {
+                createReservationFromFavorite(f);
+            }
+            @Override public void onCancelClicked() { /* no-op */ }
+
+            // ★ 다이얼로그에서 별 토글 시 → 서버 기준으로 즉시 재조회
+            @Override public void onFavoriteChanged(boolean isFav, Long favId) {
+                fetchFavoritesIntoDrawer();
+            }
+        });
+        dialog.show(getSupportFragmentManager(), "reserve_card");
     }
 
+
     private void onClickRecentItem(RecentItem item) {
-        String routeName = !TextUtils.isEmpty(item.getRouteName()) ? item.getRouteName() : item.getRouteId();
-        showReserveCard(
-                routeName,
-                item.getDirection() == null ? "" : item.getDirection(),
-                item.getBoardStopName() == null ? "" : item.getBoardStopName(),
-                item.getDestStopName() == null ? "" : item.getDestStopName(),
-                () -> createReservationFromRecent(item)
+        String busNo = !TextUtils.isEmpty(item.getRouteName()) ? item.getRouteName() : item.getRouteId();
+        String dir   = item.getDirection()   == null ? "" : item.getDirection();
+        String from  = item.getBoardStopName()== null ? "" : item.getBoardStopName();
+        String to    = item.getDestStopName() == null ? "" : item.getDestStopName();
+
+        // ★ 현재 보유한 즐겨찾기에서 동일 조합 찾기 (routeId+direction+boardStopId+destStopId)
+        Long matchedFavId = null;
+        for (Map.Entry<Long, ApiService.FavoriteResponse> e : favDetailById.entrySet()) {
+            ApiService.FavoriteResponse f = e.getValue();
+            if (TextUtils.equals(f.routeId, item.getRouteId())
+                    && TextUtils.equals(empty(f.direction), empty(item.getDirection()))
+                    && TextUtils.equals(f.boardStopId, item.getBoardStopId())
+                    && TextUtils.equals(f.destStopId, item.getDestStopId())) {
+                matchedFavId = e.getKey();
+                break;
+            }
+        }
+        final Long matchedFavIdFinal = matchedFavId; // ← 콜백에서 사용할 final 변수
+        boolean isFavorite = matchedFavIdFinal != null;
+
+        ReserveCardDialogFragment dialog = ReserveCardDialogFragment.newInstanceFull(
+                /* 표시용 */ busNo, dir, from, to,
+                /* 서버용 */ item.getRouteId(), item.getDirection(),
+                item.getBoardStopId(), item.getBoardStopName(), item.getBoardArsId(),
+                item.getDestStopId(),  item.getDestStopName(),  item.getDestArsId(),
+                item.getRouteName(),
+                /* 초기 즐겨찾기 상태 */ isFavorite, matchedFavIdFinal
         );
+
+        dialog.setOnActionListener(new ReserveCardDialogFragment.OnActionListener() {
+            @Override public void onReserveClicked(boolean boardingAlarm, boolean dropOffAlarm) {
+                createReservationFromRecent(item);
+            }
+            @Override public void onCancelClicked() { /* no-op */ }
+
+            // ★ 토글 결과는 서버 기준으로 즉시 동기화
+            @Override public void onFavoriteChanged(boolean nowFav, Long favId) {
+                fetchFavoritesIntoDrawer();
+            }
+        });
+        dialog.show(getSupportFragmentManager(), "reserve_card");
     }
+
+
+    private static String empty(String s){ return s==null? "": s; }
+
 
     private void showReserveCard(String busNo, String dir, String from, String to, Runnable onReserve) {
         // 중앙 카드(다이얼로그) 띄우기
@@ -1007,7 +1062,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         String access = TokenStore.getAccess(getApplicationContext());
         if (TextUtils.isEmpty(access)) {
             Toast.makeText(this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
-            startActivity(new Intent(this, LoginActivity.class));
+            LoginRequiredDialogFragment.show(getSupportFragmentManager());
             return;
         }
 
@@ -1033,7 +1088,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     if (resp.code()==401) {
                         TokenStore.clearAccess(getApplicationContext());
                         Toast.makeText(MainActivity.this, "로그인이 만료되었습니다.", Toast.LENGTH_SHORT).show();
-                        startActivity(new Intent(MainActivity.this, LoginActivity.class));
+                        LoginRequiredDialogFragment.show(getSupportFragmentManager());
                         return;
                     }
                     String msg = (resp.code()==409) ? "예약 불가(중복/정책 위반)" :
@@ -1052,7 +1107,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         String access = TokenStore.getAccess(getApplicationContext());
         if (TextUtils.isEmpty(access)) {
             Toast.makeText(this, "로그인이 필요합니다.", Toast.LENGTH_SHORT).show();
-            startActivity(new Intent(this, LoginActivity.class));
+            LoginRequiredDialogFragment.show(getSupportFragmentManager());
             return;
         }
 
@@ -1078,7 +1133,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     if (resp.code()==401) {
                         TokenStore.clearAccess(getApplicationContext());
                         Toast.makeText(MainActivity.this, "로그인이 만료되었습니다.", Toast.LENGTH_SHORT).show();
-                        startActivity(new Intent(MainActivity.this, LoginActivity.class));
+                        LoginRequiredDialogFragment.show(getSupportFragmentManager());
                         return;
                     }
                     String msg = (resp.code()==409) ? "예약 불가(중복/정책 위반)" :
