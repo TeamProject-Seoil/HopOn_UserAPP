@@ -41,7 +41,14 @@ public class SettingsActivity extends AppCompatActivity {
     private TextView textName, textPhone, textEmail;
     private ImageView imageProfile;
     private SwitchCompat switchNotice;
-    private String sessionUserId = null; // me() 결과에서 userid
+
+    // 문의 이동 버튼
+    private LinearLayout btnAppInquiry;
+
+    // me() 결과에서 세션 정보
+    private String sessionUserId = null;
+    private String sessionEmail  = null;
+    private String sessionName   = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,6 +65,7 @@ public class SettingsActivity extends AppCompatActivity {
         textEmail        = findViewById(R.id.text_email);
         imageProfile     = findViewById(R.id.image_profile);
         switchNotice     = findViewById(R.id.switch_notice);
+        btnAppInquiry    = findViewById(R.id.btn_app_inquiry); // ★ 문의 이동 버튼 바인딩
 
         btnBack.setOnClickListener(v -> finish());
         sectionLogin.setOnClickListener(v -> startActivity(new Intent(this, LoginActivity.class)));
@@ -65,14 +73,22 @@ public class SettingsActivity extends AppCompatActivity {
         // 계정 수정(비밀번호 재확인 다이얼로그)
         btnEditAccount.setOnClickListener(v -> showVerifyPasswordDialog());
 
-        // ✅ 회원탈퇴 버튼 -> UserQuitActivity(user_quit.xml) 화면으로 이동
+        // 회원탈퇴 화면 이동
         btnDeleteAccount.setOnClickListener(v ->
                 startActivity(new Intent(this, UserQuitActivity.class))
         );
 
+        // 공지 알림 스위치 (임시 토스트)
         switchNotice.setOnCheckedChangeListener((b, checked) ->
                 Toast.makeText(this, "공지사항 알림: " + (checked ? "ON" : "OFF"), Toast.LENGTH_SHORT).show()
         );
+
+        // ★ 어플리케이션 문의 화면으로 이동 (가능하면 사용자 정보 전달)
+        btnAppInquiry = findViewById(R.id.btn_app_inquiry);
+        btnAppInquiry.setOnClickListener(v -> {
+            startActivity(new Intent(this, InquiryActivity.class)); // ← 목록 화면으로
+        });
+
     }
 
     @Override
@@ -135,7 +151,12 @@ public class SettingsActivity extends AppCompatActivity {
         viewLoggedIn.setVisibility(View.GONE);
         sectionLogin.setVisibility(View.VISIBLE);
         if (btnDeleteAccount != null) btnDeleteAccount.setVisibility(View.GONE);
+
+        // 세션 정보 초기화
         sessionUserId = null;
+        sessionEmail  = null;
+        sessionName   = null;
+
         if (btnEditAccount != null) btnEditAccount.setEnabled(false);
     }
 
@@ -143,11 +164,15 @@ public class SettingsActivity extends AppCompatActivity {
         sectionLogin.setVisibility(View.GONE);
         viewLoggedIn.setVisibility(View.VISIBLE);
 
-        textName.setText(!TextUtils.isEmpty(me.username) ? me.username : me.userid);
-        textPhone.setText(me.tel != null ? me.tel : "");
-        textEmail.setText(me.email != null ? me.email : "");
-
+        // 세션 정보 저장 (문의 화면 프리필용)
         sessionUserId = me.userid;
+        sessionEmail  = me.email;
+        sessionName   = !TextUtils.isEmpty(me.username) ? me.username : me.userid;
+
+        textName.setText(sessionName);
+        textPhone.setText(me.tel != null ? me.tel : "");
+        textEmail.setText(sessionEmail != null ? sessionEmail : "");
+
         if (TextUtils.isEmpty(sessionUserId)) {
             btnEditAccount.setEnabled(false);
             Toast.makeText(this, "사용자 식별값(userid)을 확인할 수 없습니다. 다시 로그인해 주세요.", Toast.LENGTH_SHORT).show();
@@ -171,7 +196,7 @@ public class SettingsActivity extends AppCompatActivity {
         });
     }
 
-    // ===== 현재 비밀번호 확인 다이얼로그: /auth/verify-current-password 사용 =====
+    // ===== 현재 비밀번호 확인 다이얼로그 =====
     private void showVerifyPasswordDialog() {
         if (TextUtils.isEmpty(sessionUserId)) {
             Toast.makeText(this, "세션 정보가 만료되었습니다. 다시 로그인해 주세요.", Toast.LENGTH_SHORT).show();
@@ -198,10 +223,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         btnCancel.setOnClickListener(v -> dialog.dismiss());
 
-        // 입력 중 오류문구 제거
         et.addTextChangedListener(new SimpleTextWatcher(() -> til.setError(null)));
-
-        // IME actionDone(키보드 완료)로 제출
         et.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_DONE) { btnOk.performClick(); return true; }
             return false;
@@ -214,7 +236,6 @@ public class SettingsActivity extends AppCompatActivity {
             btnOk.setEnabled(false);
             btnCancel.setEnabled(false);
 
-            // 키보드 닫기
             try {
                 InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
                 if (imm != null) imm.hideSoftInputFromWindow(et.getWindowToken(), 0);
@@ -234,7 +255,6 @@ public class SettingsActivity extends AppCompatActivity {
             String deviceId = DeviceInfo.getDeviceId(this);
             if (TextUtils.isEmpty(deviceId)) deviceId = "unknown-device";
 
-            // 서버가 요구하는 DTO
             ApiService.VerifyCurrentPasswordRequest body =
                     new ApiService.VerifyCurrentPasswordRequest(pwd, clientType, deviceId);
 
@@ -261,7 +281,6 @@ public class SettingsActivity extends AppCompatActivity {
                             return;
                         }
 
-                        // 401이면 refresh 후 1회 재시도
                         if (res.code() == 401) {
                             String rt = TokenStore.getRefresh(SettingsActivity.this);
                             if (!TextUtils.isEmpty(rt)) {

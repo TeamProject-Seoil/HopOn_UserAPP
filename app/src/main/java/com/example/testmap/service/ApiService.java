@@ -1,4 +1,3 @@
-// app/src/main/java/com/example/testmap/service/ApiService.java
 package com.example.testmap.service;
 
 import com.example.testmap.dto.ArrivalDto;
@@ -16,29 +15,24 @@ import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
-import retrofit2.http.Body;
-import retrofit2.http.DELETE;
-import retrofit2.http.Field;
-import retrofit2.http.FormUrlEncoded;
-import retrofit2.http.GET;
-import retrofit2.http.Header;
-import retrofit2.http.HTTP;
-import retrofit2.http.Multipart;
-import retrofit2.http.PATCH;
-import retrofit2.http.POST;
-import retrofit2.http.Part;
-import retrofit2.http.Path;
-import retrofit2.http.Query;
+import retrofit2.http.*;
 
+/**
+ * Retrofit2 API 정의
+ * ✅ 2025-10 통합 수정판
+ *  - Inquiry API 완전 통합 (비밀글, 비밀번호, multipart 포함)
+ *  - Spring Boot InquiryController @RequestParam 구조와 일치
+ *  - 기존 예약/공지/즐겨찾기/회원 API 유지
+ */
 public interface ApiService {
 
-    // ====== 버스/정류장 ======
+    // =========================================================
+    // ================= 버스 / 정류장 ==========================
+    // =========================================================
     @GET("/api/nearstations")
-    Call<List<StationDto>> getNearStations(
-            @Query("x") double x,
-            @Query("y") double y,
-            @Query("radius") int radius
-    );
+    Call<List<StationDto>> getNearStations(@Query("x") double x,
+                                           @Query("y") double y,
+                                           @Query("radius") int radius);
 
     @GET("/api/stationStop")
     Call<List<ArrivalDto>> getStationArrivals(@Query("arsId") String arsId);
@@ -49,288 +43,252 @@ public interface ApiService {
     @GET("/api/busStopList")
     Call<List<BusRouteDto>> getBusRoute(@Query("busRouteId") String busRouteId);
 
-    // DB 기반 주변 정류장 조회
     @GET("/api/stations/nearby")
-    Call<List<StationDto>> getNearbyStations(
-            @Query("lon") double longitude,
-            @Query("lat") double latitude,
-            @Query("radius") int radius
-    );
+    Call<List<StationDto>> getNearbyStations(@Query("lon") double lon,
+                                             @Query("lat") double lat,
+                                             @Query("radius") int radius);
 
-    // ====== 인증 DTO ======
+    // =========================================================
+    // ======================= 인증 ============================
+    // =========================================================
     class AuthRequest {
-        public String userid;
-        public String password;
-        public String clientType;
-        public String deviceId;
-
+        public String userid, password, clientType, deviceId;
         public AuthRequest(String u, String p, String c, String d) {
-            this.userid = u;
-            this.password = p;
-            this.clientType = c;
-            this.deviceId = d;
+            userid=u; password=p; clientType=c; deviceId=d;
         }
     }
+    class AuthResponse { public String accessToken, refreshToken, tokenType, role; }
+    class RegisterResponse { public boolean ok; public String message, userid, reason; }
+    class CheckResponse { public boolean useridTaken, emailTaken; }
 
-    class AuthResponse {
-        public String accessToken;
-        public String refreshToken;
-        public String tokenType;
-        public String role;
-    }
-
-    class RegisterResponse {
-        public boolean ok;
-        public String message;
-        public String userid;
-        public String reason;
-    }
-
-    class CheckResponse {
-        public boolean useridTaken;
-        public boolean emailTaken;
-    }
-
-    // ====== 인증 API ======
-    @POST("/auth/login")
-    Call<AuthResponse> login(@Body AuthRequest body);
-
+    @POST("/auth/login") Call<AuthResponse> login(@Body AuthRequest body);
     @FormUrlEncoded
     @POST("/auth/refresh")
-    Call<AuthResponse> refresh(
-            @Field("refreshToken") String refreshToken,
-            @Field("clientType") String clientType,
-            @Field("deviceId") String deviceId
-    );
-
+    Call<AuthResponse> refresh(@Field("refreshToken") String token,
+                               @Field("clientType") String c,
+                               @Field("deviceId") String d);
     @Multipart
     @POST("/auth/register")
-    Call<RegisterResponse> register(
-            @Part("data") RequestBody dataJson,
-            @Part MultipartBody.Part file
-    );
-
+    Call<RegisterResponse> register(@Part("data") RequestBody dataJson,
+                                    @Part MultipartBody.Part file);
     @GET("/auth/check")
-    Call<CheckResponse> checkDup(
-            @Query("userid") String userid,
-            @Query("email") String email
-    );
+    Call<CheckResponse> checkDup(@Query("userid") String userid,
+                                 @Query("email") String email);
 
-    // ====== 이메일 인증 ======
-    @POST("/auth/email/send-code")
-    Call<Map<String, Object>> sendEmail(@Body SendEmailCodeRequest req);
-
-    @POST("/auth/email/verify-code")
-    Call<Map<String, Object>> verifyEmail(@Body VerifyEmailCodeRequest req);
-
+    // 이메일 인증
     class SendEmailCodeRequest {
-        private String email;
-        private String purpose;
-        public SendEmailCodeRequest(String email, String purpose) {
-            this.email = email;
-            this.purpose = purpose;
-        }
+        public String email, purpose;
+        public SendEmailCodeRequest(String e, String p){ email=e; purpose=p; }
     }
-
     class VerifyEmailCodeRequest {
-        private String verificationId;
-        private String email;
-        private String purpose;
-        private String code;
-        public VerifyEmailCodeRequest(String verificationId, String email, String purpose, String code) {
-            this.verificationId = verificationId;
-            this.email = email;
-            this.purpose = purpose;
-            this.code = code;
+        public String verificationId,email,purpose,code;
+        public VerifyEmailCodeRequest(String v,String e,String p,String c){
+            verificationId=v; email=e; purpose=p; code=c;
         }
     }
+    @POST("/auth/email/send-code")
+    Call<Map<String,Object>> sendEmail(@Body SendEmailCodeRequest req);
+    @POST("/auth/email/verify-code")
+    Call<Map<String,Object>> verifyEmail(@Body VerifyEmailCodeRequest req);
 
-    // ====== 아이디 / 비밀번호 찾기 ======
+    // 비밀번호 관련
     @POST("/auth/find-id-after-verify")
-    Call<Map<String, Object>> findIdAfterVerify(@Body Map<String, Object> body);
-
+    Call<Map<String,Object>> findIdAfterVerify(@Body Map<String,Object> body);
     @POST("/auth/reset-password-after-verify")
-    Call<Map<String, Object>> resetPasswordAfterVerify(@Body Map<String, Object> body);
-
+    Call<Map<String,Object>> resetPasswordAfterVerify(@Body Map<String,Object> body);
     @POST("/auth/verify-pw-user")
-    Call<Map<String, Object>> verifyPwUser(
-            @Header("Authorization") String bearer,
-            @Body Map<String, Object> body
-    );
+    Call<Map<String,Object>> verifyPwUser(@Header("Authorization") String bearer,
+                                          @Body Map<String,Object> body);
 
-    // ====== 현재 비밀번호 확인 ======
     class VerifyCurrentPasswordRequest {
-        public String currentPassword;
-        public String clientType;
-        public String deviceId;
-        public VerifyCurrentPasswordRequest(String currentPassword, String clientType, String deviceId) {
-            this.currentPassword = currentPassword;
-            this.clientType = clientType;
-            this.deviceId = deviceId;
+        public String currentPassword, clientType, deviceId;
+        public VerifyCurrentPasswordRequest(String c,String t,String d){
+            currentPassword=c; clientType=t; deviceId=d;
         }
     }
-
     @POST("/auth/verify-current-password")
-    Call<Map<String,Object>> verifyCurrentPassword(
-            @Header("Authorization") String bearer,
-            @Body VerifyCurrentPasswordRequest body
-    );
+    Call<Map<String,Object>> verifyCurrentPassword(@Header("Authorization") String bearer,
+                                                   @Body VerifyCurrentPasswordRequest body);
 
-    // ====== 로그인 사용자 ======
-    @GET("/users/me")
-    Call<UserResponse> me(@Header("Authorization") String bearer);
-
-    @GET("/users/me/profile-image")
-    Call<ResponseBody> meImage(@Header("Authorization") String bearer);
-
-    @POST("/auth/logout")
-    Call<Map<String, Object>> logout(@Body LogoutRequest body);
+    // 로그인 사용자
+    @GET("/users/me") Call<UserResponse> me(@Header("Authorization") String bearer);
+    @GET("/users/me/profile-image") Call<ResponseBody> meImage(@Header("Authorization") String bearer);
+    @POST("/auth/logout") Call<Map<String,Object>> logout(@Body LogoutRequest body);
 
     class UserResponse {
-        public Long userNum;
-        public String userid;
-        public String username;
-        public String email;
-        public String tel;
-        public String role;
+        public Long userNum; public String userid, username, email, tel, role;
         public boolean hasProfileImage;
-
-        public String company;
-        public String approvalStatus;
+        public String company, approvalStatus, lastLoginAtIso, lastRefreshAtIso;
         public Boolean hasDriverLicenseFile;
-        public String lastLoginAtIso;
-        public String lastRefreshAtIso;
     }
-
     class LogoutRequest {
-        public String clientType;
-        public String deviceId;
-        public String refreshToken;
-        public LogoutRequest(String clientType, String deviceId, String refreshToken) {
-            this.clientType = clientType;
-            this.deviceId = deviceId;
-            this.refreshToken = refreshToken;
+        public String clientType, deviceId, refreshToken;
+        public LogoutRequest(String c,String d,String r){
+            clientType=c; deviceId=d; refreshToken=r;
         }
     }
 
-    // ====== 개인정보 수정 ======
+    // 개인정보 수정 / 비밀번호 변경 / 탈퇴
     @Multipart
     @PATCH("/users/me")
-    Call<UserResponse> updateMe(
-            @Header("Authorization") String bearer,
-            @Part("data") RequestBody dataJson,
-            @Part MultipartBody.Part file
-    );
-
-    // ====== 비밀번호 변경 ======
-    @POST("/users/me/password")
-    Call<Map<String, Object>> changePassword(
-            @Header("Authorization") String bearer,
-            @Body ChangePasswordRequest body
-    );
-
+    Call<UserResponse> updateMe(@Header("Authorization") String bearer,
+                                @Part("data") RequestBody dataJson,
+                                @Part MultipartBody.Part file);
     class ChangePasswordRequest {
-        public String currentPassword;
-        public String newPassword;
-        public ChangePasswordRequest(String c, String n) {
-            this.currentPassword = c;
-            this.newPassword = n;
-        }
+        public String currentPassword,newPassword;
+        public ChangePasswordRequest(String c,String n){ currentPassword=c; newPassword=n; }
     }
-
-    // ====== 회원 탈퇴 ======
-    @HTTP(method = "DELETE", path = "/users/me", hasBody = true)
-    Call<Map<String, Object>> deleteMe(
-            @Header("Authorization") String bearer,
-            @Body DeleteAccountRequest body
-    );
-
+    @POST("/users/me/password")
+    Call<Map<String,Object>> changePassword(@Header("Authorization") String bearer,
+                                            @Body ChangePasswordRequest body);
     class DeleteAccountRequest {
         public String currentPassword;
-        public DeleteAccountRequest(String currentPassword) {
-            this.currentPassword = currentPassword;
-        }
+        public DeleteAccountRequest(String c){ currentPassword=c; }
     }
+    @HTTP(method="DELETE",path="/users/me",hasBody=true)
+    Call<Map<String,Object>> deleteMe(@Header("Authorization") String bearer,
+                                      @Body DeleteAccountRequest body);
 
-    // ====== 예약 ======
+    // =========================================================
+    // ======================= 예약 ============================
+    // =========================================================
     @POST("/api/reservations")
-    Call<ReservationResponse> createReservation(
-            @Header("Authorization") String bearer,
-            @Body ReservationCreateRequest body
-    );
-
+    Call<ReservationResponse> createReservation(@Header("Authorization") String bearer,
+                                                @Body ReservationCreateRequest body);
     @GET("/api/reservations/active")
-    Call<ReservationResponse> getActiveReservation(
-            @Header("Authorization") String bearer
-    );
-
+    Call<ReservationResponse> getActiveReservation(@Header("Authorization") String bearer);
     @GET("/api/reservations")
-    Call<List<ReservationResponse>> getReservations(
-            @Header("Authorization") String bearer
-    );
-
+    Call<List<ReservationResponse>> getReservations(@Header("Authorization") String bearer);
     @DELETE("/api/reservations/{id}")
-    Call<CancelResult> cancelReservationById(
-            @Header("Authorization") String bearer,
-            @Path("id") Long reservationId
-    );
+    Call<CancelResult> cancelReservationById(@Header("Authorization") String bearer,
+                                             @Path("id") Long id);
 
-    // ====== 즐겨찾기 ======
+    // =========================================================
+    // ===================== 즐겨찾기 ==========================
+    // =========================================================
     @POST("/api/favorites")
-    Call<FavoriteResponse> addFavorite(
-            @Header("Authorization") String bearer,
-            @Body FavoriteCreateRequest body
-    );
-
+    Call<FavoriteResponse> addFavorite(@Header("Authorization") String bearer,
+                                       @Body FavoriteCreateRequest body);
     @GET("/api/favorites")
-    Call<List<FavoriteResponse>> getFavorites(
-            @Header("Authorization") String bearer
-    );
-
+    Call<List<FavoriteResponse>> getFavorites(@Header("Authorization") String bearer);
     @DELETE("/api/favorites/{id}")
-    Call<Void> deleteFavorite(
-            @Header("Authorization") String bearer,
-            @Path("id") Long id
-    );
+    Call<Void> deleteFavorite(@Header("Authorization") String bearer,
+                              @Path("id") Long id);
 
-    // ---- 즐겨찾기 DTO ----
     class FavoriteCreateRequest {
-        public String routeId;
-        public String direction;
-        public String boardStopId;
-        public String boardStopName;
-        public String boardArsId;
-        public String destStopId;
-        public String destStopName;
-        public String destArsId;
-        public String routeName;
-
-        public FavoriteCreateRequest(String routeId, String direction,
-                                     String boardStopId, String boardStopName, String boardArsId,
-                                     String destStopId, String destStopName, String destArsId,
-                                     String routeName) {
-            this.routeId       = routeId;
-            this.direction     = direction;
-            this.boardStopId   = boardStopId;
-            this.boardStopName = boardStopName;
-            this.boardArsId    = boardArsId;
-            this.destStopId    = destStopId;
-            this.destStopName  = destStopName;
-            this.destArsId     = destArsId;
-            this.routeName     = routeName;
+        public String routeId,direction,boardStopId,boardStopName,boardArsId,
+                destStopId,destStopName,destArsId,routeName;
+        public FavoriteCreateRequest(String r,String d,String bid,String bname,String bars,
+                                     String did,String dname,String dars,String rn){
+            routeId=r; direction=d; boardStopId=bid; boardStopName=bname; boardArsId=bars;
+            destStopId=did; destStopName=dname; destArsId=dars; routeName=rn;
         }
     }
-
     class FavoriteResponse {
-        public Long id;
-        public String routeId;
-        public String direction;
-        public String boardStopId;
-        public String boardStopName;
-        public String boardArsId;
-        public String destStopId;
-        public String destStopName;
-        public String destArsId;
-        public String routeName;
+        public Long id; public String routeId,direction,boardStopId,boardStopName,
+                boardArsId,destStopId,destStopName,destArsId,routeName;
     }
+
+    // =========================================================
+    // =============== 공통: Spring Page 응답 ===================
+    // =========================================================
+    class PageResponse<T> {
+        public List<T> content;
+        public int number,size,totalPages;
+        public long totalElements;
+        public boolean first,last;
+    }
+
+    // =========================================================
+    // ================== 공지(Notice) API ======================
+    // =========================================================
+    class NoticeResp {
+        public Long id; public String title,content,noticeType,targetRole;
+        public long viewCount;
+        public String createdAt,updatedAt;
+    }
+    @GET("/api/notices")
+    Call<PageResponse<NoticeResp>> getNotices(@Header("X-User-Role") String role,
+                                              @Query("page") int page,
+                                              @Query("size") int size,
+                                              @Query("sort") String sort,
+                                              @Query("q") String q,
+                                              @Query("type") String type);
+    @GET("/api/notices/{id}")
+    Call<NoticeResp> getNoticeDetail(@Path("id") Long id,
+                                     @Query("increase") boolean increase);
+
+    // =========================================================
+    // ================== 문의(Inquiry) API =====================
+    // =========================================================
+    class InquiryAtt { public Long id; public String filename,contentType; public long size; }
+    class InquiryRep { public Long id; public String message,createdAt; }
+    class InquiryResp {
+        public Long id; public String name,email,userid,title,content,status;
+        public boolean secret,hasPassword;
+        public List<InquiryAtt> attachments; public List<InquiryRep> replies;
+        public String createdAt,updatedAt;
+    }
+
+    /** (공개 목록, 비로그인 가능) */
+    @GET("/api/inquiries/public")
+    Call<PageResponse<InquiryResp>> getPublicInquiries(@Query("page") int page,
+                                                       @Query("size") int size,
+                                                       @Query("sort") String sort,
+                                                       @Query("q") String q,
+                                                       @Query("status") String status);
+
+    /** (내 문의 목록, 로그인 필요) */
+    @GET("/api/inquiries")
+    Call<PageResponse<InquiryResp>> getMyInquiries(@Header("Authorization") String bearer,
+                                                   @Header("X-User-Id") String userId,
+                                                   @Header("X-User-Email") String email,
+                                                   @Header("X-User-Role") String role,
+                                                   @Query("page") int page,
+                                                   @Query("size") int size,
+                                                   @Query("sort") String sort,
+                                                   @Query("q") String q,
+                                                   @Query("status") String status);
+
+    /** (내 문의 상세) */
+    @GET("/api/inquiries/{id}")
+    Call<InquiryResp> getMyInquiryDetail(@Header("Authorization") String bearer,
+                                         @Header("X-User-Id") String userId,
+                                         @Header("X-User-Email") String email,
+                                         @Header("X-User-Role") String role,
+                                         @Path("id") Long id);
+
+    /** (공개 상세, 비밀번호 필요 시 password 포함) */
+    @GET("/api/inquiries/{id}/public")
+    Call<InquiryResp> getInquiryPublicDetail(@Path("id") Long id,
+                                             @Query("password") String password);
+
+    /** (첨부 다운로드: 내 문의 / 공개) */
+    @GET("/api/inquiries/{inquiryId}/attachments/{attId}")
+    Call<ResponseBody> downloadInquiryAttachment(@Header("Authorization") String bearer,
+                                                 @Header("X-User-Id") String userId,
+                                                 @Header("X-User-Email") String email,
+                                                 @Header("X-User-Role") String role,
+                                                 @Path("inquiryId") Long inquiryId,
+                                                 @Path("attId") Long attId,
+                                                 @Query("inline") boolean inline);
+
+    @GET("/api/inquiries/{inquiryId}/attachments/{attId}/public")
+    Call<ResponseBody> downloadInquiryAttachmentPublic(@Path("inquiryId") Long inquiryId,
+                                                       @Path("attId") Long attId,
+                                                       @Query("password") String password,
+                                                       @Query("inline") boolean inline);
+
+    /** (문의 작성: multipart, 로그인/비로그인 가능) */
+    @Multipart
+    @POST("/api/inquiries")
+    Call<InquiryResp> createInquiry(@Header("X-User-Id") String userId,
+                                    @Header("X-User-Email") String email,
+                                    @Header("X-User-Role") String role,
+                                    @Part("title") RequestBody title,
+                                    @Part("content") RequestBody content,
+                                    @Part("name") RequestBody name,
+                                    @Part("secret") RequestBody secret,
+                                    @Part("password") RequestBody password,
+                                    @Part List<MultipartBody.Part> files);
 }
