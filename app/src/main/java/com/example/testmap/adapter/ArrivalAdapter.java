@@ -1,6 +1,11 @@
 package com.example.testmap.adapter;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.PorterDuff;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,6 +22,8 @@ import com.example.testmap.R;
 import com.example.testmap.dto.ArrivalDto;
 
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** 정류장 도착 리스트 어댑터 (Fragment와 분리) */
 public class ArrivalAdapter extends RecyclerView.Adapter<ArrivalAdapter.ArrivalVH> {
@@ -61,19 +68,27 @@ public class ArrivalAdapter extends RecyclerView.Adapter<ArrivalAdapter.ArrivalV
         return new ArrivalVH(v);
     }
 
+
     @Override
     public void onBindViewHolder(@NonNull ArrivalVH h, int pos) {
         ArrivalDto a = data.get(pos);
 
         h.tvRoute.setText(a.rtNm);
         h.tvDir.setText(a.adirection + " 방면");
-        h.tvArr1.setText(formatArrMsg(a.arrmsg1));
-        h.tvArr2.setText(formatArrMsg(a.arrmsg2));
 
-        int color = ContextCompat.getColor(h.itemView.getContext(),
+        // ✅ SharedPreferences에서 선택된 색상 불러오기
+        SharedPreferences prefs = h.itemView.getContext().getSharedPreferences("settings", Context.MODE_PRIVATE);
+        int colorValue = prefs.getInt("arrival_text_color", android.graphics.Color.BLACK);
+
+        // ✅ "xx분 후"에만 색상 적용
+        h.tvArr1.setText(formatArrMsgColored(h.tvArr1, a.arrmsg1, colorValue));
+        h.tvArr2.setText(formatArrMsgColored(h.tvArr2, a.arrmsg2, colorValue));
+
+        // 버스 아이콘 색상 (기존)
+        int colorBus = ContextCompat.getColor(h.itemView.getContext(),
                 com.example.testmap.util.BusColors.forRouteType(a.routeType));
         h.ivBus.setImageResource(R.drawable.vector);
-        h.ivBus.setColorFilter(color, PorterDuff.Mode.SRC_IN);
+        h.ivBus.setColorFilter(colorBus, PorterDuff.Mode.SRC_IN);
 
         h.tvCong1.setVisibility(View.GONE);
         h.tvCong2.setVisibility(View.GONE);
@@ -81,7 +96,6 @@ public class ArrivalAdapter extends RecyclerView.Adapter<ArrivalAdapter.ArrivalV
         bindStatus(h.tvCong1, a.congestion1, a.rerdieDiv1, a.arrmsg1);
         bindStatus(h.tvCong2, a.congestion2, a.rerdieDiv2, a.arrmsg2);
 
-        // ★ 클릭 연결 (콜백이 있을 때만)
         if (onItemClick != null) {
             h.itemView.setOnClickListener(v -> onItemClick.onClick(a));
         } else {
@@ -89,15 +103,41 @@ public class ArrivalAdapter extends RecyclerView.Adapter<ArrivalAdapter.ArrivalV
         }
     }
 
+
+
     @Override public int getItemCount(){ return data.size(); }
 
-    private CharSequence formatArrMsg(String s) {
+    private CharSequence formatArrMsgColored(View h, String s, int colorValue) {
         if (s == null) return "";
+
+        // 기본 문자열 정리
         String t = s.replace('\n',' ').replace('\r',' ');
-        t = t.replaceAll("((?:\\d+\\s*분|\\d+\\s*초))\\s*후", "$1");
         t = t.replaceAll("\\s+", " ").trim();
-        return t;
+
+        SpannableString span = new SpannableString(t);
+
+        // [로 시작하는 괄호 이후는 제외하고 "xx분"만 색 적용
+        int bracketIndex = t.indexOf('[');
+        int colorEnd = (bracketIndex == -1) ? t.length() : bracketIndex;
+
+        Pattern p = Pattern.compile("(\\d+\\s*분\\s*후)");
+
+        Matcher m = p.matcher(t);
+
+        while (m.find()) {
+            if (m.start() < colorEnd) { // 괄호 안쪽은 제외
+                span.setSpan(
+                        new ForegroundColorSpan(colorValue),
+                        m.start(), m.end(),
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                );
+            }
+        }
+
+        return span;
     }
+
+
 
     /** 표시 규칙
      * mode(=congestion): 1 잔여좌석 → "잔여 N"
@@ -144,6 +184,27 @@ public class ArrivalAdapter extends RecyclerView.Adapter<ArrivalAdapter.ArrivalV
                 tv.setVisibility(View.GONE);
         }
     }
+    // ✅ SharedPreferences에 저장된 정렬 기준에 따라 data 정렬
+   /* 버스 도착정보 노출 기준
+    public void applySort(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE);
+        String criteria = prefs.getString("arrival_display_criteria", "노선번호순");
+
+        switch (criteria) {
+            case "도착시간순":
+                java.util.Collections.sort(data, com.example.testmap.dto.ArrivalComparators.BY_ARRIVAL_TIME);
+                break;
+            case "버스유형순":
+                java.util.Collections.sort(data, com.example.testmap.dto.ArrivalComparators.BY_BUS_TYPE);
+                break;
+            default:
+                java.util.Collections.sort(data, com.example.testmap.dto.ArrivalComparators.BY_ROUTE_NUMBER);
+                break;
+        }
+
+        notifyDataSetChanged();
+    }*/
+
 
     private void show(TextView tv, String text, @ColorRes int colorRes) {
         tv.setVisibility(View.VISIBLE);

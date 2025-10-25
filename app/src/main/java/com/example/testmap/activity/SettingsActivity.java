@@ -1,7 +1,9 @@
 package com.example.testmap.activity;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
@@ -65,7 +67,7 @@ public class SettingsActivity extends AppCompatActivity {
         textEmail        = findViewById(R.id.text_email);
         imageProfile     = findViewById(R.id.image_profile);
         switchNotice     = findViewById(R.id.switch_notice);
-        btnAppInquiry    = findViewById(R.id.btn_app_inquiry); // ★ 문의 이동 버튼 바인딩
+        btnAppInquiry    = findViewById(R.id.btn_app_inquiry);
 
         btnBack.setOnClickListener(v -> finish());
         sectionLogin.setOnClickListener(v -> startActivity(new Intent(this, LoginActivity.class)));
@@ -83,12 +85,51 @@ public class SettingsActivity extends AppCompatActivity {
                 Toast.makeText(this, "공지사항 알림: " + (checked ? "ON" : "OFF"), Toast.LENGTH_SHORT).show()
         );
 
-        // ★ 어플리케이션 문의 화면으로 이동 (가능하면 사용자 정보 전달)
-        btnAppInquiry = findViewById(R.id.btn_app_inquiry);
-        btnAppInquiry.setOnClickListener(v -> {
-            startActivity(new Intent(this, InquiryActivity.class)); // ← 목록 화면으로
-        });
+        // ★ 어플리케이션 문의 화면으로 이동 (목록 화면)
+        btnAppInquiry.setOnClickListener(v ->
+                startActivity(new Intent(this, InquiryActivity.class))
+        );
 
+        // ===== 팝업으로 고르는 설정 버튼들 =====
+        // 버스 승차 알림
+        View btnBoarding = findViewById(R.id.btn_bus_boarding);
+        if (btnBoarding != null) {
+            btnBoarding.setOnClickListener(v ->
+                    showChoiceDialog("버스 승차 알림",
+                            new String[]{"알림 받지 않음", "1분 전", "3분 전", "5분 전"}));
+        }
+
+        // 버스 하차 알림
+        View btnAlighting = findViewById(R.id.btn_bus_alighting);
+        if (btnAlighting != null) {
+            btnAlighting.setOnClickListener(v ->
+                    showChoiceDialog("버스 하차 알림",
+                            new String[]{"알림 받지 않음", "1정거장 전", "2정거장 전", "3정거장 전"}));
+        }
+
+        // 자동 새로고침 주기
+        View btnAutoRefresh = findViewById(R.id.btn_auto_refresh);
+        if (btnAutoRefresh != null) {
+            btnAutoRefresh.setOnClickListener(v ->
+                    showChoiceDialog("자동 새로고침 주기",
+                            new String[]{"자동 새로 고침 없음", "15초", "30초", "45초"}));
+        }
+
+        // 버스 도착정보 노출 기준
+        View btnArrivalCriteria = findViewById(R.id.btn_arrival_display_criteria);
+        if (btnArrivalCriteria != null) {
+            btnArrivalCriteria.setOnClickListener(v ->
+                    showChoiceDialog("버스 도착정보 노출 기준",
+                            new String[]{"노선번호순", "도착시간순", "버스유형순"}));
+        }
+
+        // 버스 도착정보 텍스트 색상
+        View btnArrivalTextColor = findViewById(R.id.btn_arrival_text_color);
+        if (btnArrivalTextColor != null) {
+            btnArrivalTextColor.setOnClickListener(v ->
+                    showChoiceDialog("버스 도착정보 텍스트 색상",
+                            new String[]{"파랑", "초록", "빨강", "검정", "보라", "핑크"}));
+        }
     }
 
     @Override
@@ -365,5 +406,73 @@ public class SettingsActivity extends AppCompatActivity {
         @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
         @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
         @Override public void afterTextChanged(android.text.Editable s) { if (after != null) after.run(); }
+    }
+
+    // ===== 공통 선택 다이얼로그 + 선택 처리 핸들러 =====
+    private void showChoiceDialog(String title, String[] options) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(title);
+        builder.setSingleChoiceItems(options, -1, (dialog, which) -> {
+            String selected = options[which];
+            Toast.makeText(this, title + ": " + selected, Toast.LENGTH_SHORT).show();
+            dialog.dismiss();
+
+            switch (title) {
+                case "버스 승차 알림":
+                    handleBusBoardingAlert(selected);
+                    break;
+                case "버스 하차 알림":
+                    handleBusAlightingAlert(selected);
+                    break;
+                case "자동 새로고침 주기":
+                    handleAutoRefresh(selected);
+                    break;
+                case "버스 도착정보 노출 기준":
+                    handleArrivalDisplay(selected);
+                    break;
+                case "버스 도착정보 텍스트 색상":
+                    handleTextColor(selected);
+                    break;
+            }
+        });
+        builder.setNegativeButton("취소", (dialog, which) -> dialog.dismiss());
+        builder.show();
+    }
+
+    private void handleBusBoardingAlert(String option) {
+        // TODO: 버스 승차 알림 기능 구현 시 저장/적용
+    }
+
+    private void handleBusAlightingAlert(String option) {
+        // TODO: 버스 하차 알림 기능 구현 시 저장/적용
+    }
+
+    private void handleAutoRefresh(String option) {
+        // TODO: 자동 새로고침 기능 구현 시 저장/적용
+    }
+
+    private void handleArrivalDisplay(String option) {
+        // TODO: 필요 시 SharedPreferences에 저장
+        // SharedPreferences prefs = getSharedPreferences("settings", MODE_PRIVATE);
+        // prefs.edit().putString("arrival_display_criteria", option).apply();
+        // Toast.makeText(this, "도착정보 정렬 기준이 \"" + option + "\"으로 설정되었습니다.", Toast.LENGTH_SHORT).show();
+    }
+
+    private void handleTextColor(String option) {
+        int color = Color.BLACK;
+        switch (option) {
+            case "파랑": color = Color.BLUE; break;
+            case "초록": color = Color.GREEN; break;
+            case "빨강": color = Color.RED; break;
+            case "보라": color = Color.MAGENTA; break;
+            case "핑크": color = Color.rgb(255, 105, 180); break;
+            case "검정": color = Color.BLACK; break;
+        }
+
+        // ✅ 색상값을 SharedPreferences에 저장
+        SharedPreferences prefs = getSharedPreferences("settings", MODE_PRIVATE);
+        prefs.edit().putInt("arrival_text_color", color).apply();
+
+        Toast.makeText(this, "텍스트 색상이 변경되었습니다.", Toast.LENGTH_SHORT).show();
     }
 }
