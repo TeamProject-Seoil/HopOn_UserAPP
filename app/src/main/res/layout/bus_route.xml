@@ -40,7 +40,7 @@
             android:id="@+id/bus_icon"
             android:layout_width="24dp"
             android:layout_height="24dp"
-            android:layout_marginStart="164dp"
+            android:layout_marginStart="150dp"
             android:src="@drawable/vector"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -50,7 +50,7 @@
             android:id="@+id/bus_number"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="164dp"
+            android:layout_marginEnd="178dp"
             android:text="320"
             android:textSize="25sp"
             android:textStyle="bold"
@@ -64,10 +64,11 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <!-- 방면 선택 영역 -->
     <LinearLayout
         android:id="@+id/direction_layout"
         android:layout_width="0dp"
-        android:layout_height="50dp"
+        android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:weightSum="2"
         android:background="#EEEEEE"
@@ -75,29 +76,64 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <TextView
-            android:id="@+id/direction_left"
+        <!-- 왼쪽 방면 -->
+        <LinearLayout
+            android:id="@+id/layout_left"
             android:layout_width="0dp"
-            android:layout_height="50dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:background="@color/white"
-            android:gravity="center"
-            android:text="(왼쪽 방면)"
-            android:textColor="#000000"
-            android:textStyle="bold" />
+            android:orientation="vertical"
+            android:gravity="center">
 
-        <TextView
-            android:id="@+id/direction_right"
+            <TextView
+                android:id="@+id/direction_left"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:gravity="center"
+                android:text="(왼쪽 방면)"
+                android:textColor="#000000"
+                android:textStyle="bold"
+                android:background="@color/white"/>
+
+            <!-- 밑줄 -->
+            <View
+                android:id="@+id/underline_left"
+                android:layout_width="match_parent"
+                android:layout_height="3dp"
+                android:background="#4B93FF"
+                android:visibility="visible"/> <!-- 초기 선택은 왼쪽 -->
+        </LinearLayout>
+
+        <!-- 오른쪽 방면 -->
+        <LinearLayout
+            android:id="@+id/layout_right"
             android:layout_width="0dp"
-            android:layout_height="50dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:background="#4B93FF"
-            android:text="(오른쪽 방면)"
-            android:textColor="#000000"
-            android:gravity="center"
-            android:padding="12dp"
-            android:textStyle="bold" />
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/direction_right"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:gravity="center"
+                android:text="(오른쪽 방면)"
+                android:textColor="#000000"
+                android:textStyle="bold"
+                android:background="@color/white"/>
+
+            <!-- 밑줄 -->
+            <View
+                android:id="@+id/underline_right"
+                android:layout_width="match_parent"
+                android:layout_height="3dp"
+                android:background="#4B93FF"
+                android:visibility="invisible"/>
+        </LinearLayout>
+
     </LinearLayout>
+
 
     <!-- 버스 노선도 (API 데이터로 채울 RecyclerView) -->
     <androidx.recyclerview.widget.RecyclerView
