@@ -66,6 +66,7 @@ public class BusRouteActivity extends AppCompatActivity {
     private String dirLeft = null, dirRight = null;
     private String currentDir = null;
     private TextView tvLeft, tvRight;
+    private View underlineLeft, underlineRight;
 
     private String currentBusRouteId;
     private final Map<String, Boolean> visibleSeq = new HashMap<>();
@@ -115,20 +116,26 @@ public class BusRouteActivity extends AppCompatActivity {
 
     private void selectLeft() {
         if (tvLeft == null || tvRight == null) return;
-        tvLeft.setBackgroundColor(ContextCompat.getColor(this, android.R.color.white));
-        tvLeft.setTextColor(ContextCompat.getColor(this, android.R.color.black));
 
-        tvRight.setBackgroundColor(ContextCompat.getColor(this, R.color.mainblue));
-        tvRight.setTextColor(ContextCompat.getColor(this, android.R.color.white));
+        tvLeft.setTextColor(ContextCompat.getColor(this, R.color.mainblue));
+        tvLeft.setTypeface(null, android.graphics.Typeface.BOLD);
+        underlineLeft.setVisibility(View.VISIBLE);
+
+        tvRight.setTextColor(ContextCompat.getColor(this, R.color.grayText));
+        tvRight.setTypeface(null, android.graphics.Typeface.NORMAL);
+        underlineRight.setVisibility(View.INVISIBLE);
     }
 
     private void selectRight() {
         if (tvLeft == null || tvRight == null) return;
-        tvRight.setBackgroundColor(ContextCompat.getColor(this, android.R.color.white));
-        tvRight.setTextColor(ContextCompat.getColor(this, android.R.color.black));
 
-        tvLeft.setBackgroundColor(ContextCompat.getColor(this, R.color.mainblue));
-        tvLeft.setTextColor(ContextCompat.getColor(this, android.R.color.white));
+        tvRight.setTextColor(ContextCompat.getColor(this, R.color.mainblue));
+        tvRight.setTypeface(null, android.graphics.Typeface.BOLD);
+        underlineRight.setVisibility(View.VISIBLE);
+
+        tvLeft.setTextColor(ContextCompat.getColor(this, R.color.grayText));
+        tvLeft.setTypeface(null, android.graphics.Typeface.NORMAL);
+        underlineLeft.setVisibility(View.INVISIBLE);
     }
 
     @Override
@@ -161,9 +168,12 @@ public class BusRouteActivity extends AppCompatActivity {
 
         tvLeft  = findViewById(R.id.direction_left);
         tvRight = findViewById(R.id.direction_right);
+        underlineLeft = findViewById(R.id.underline_left);
+        underlineRight = findViewById(R.id.underline_right);
         selectLeft();
         tvLeft.setOnClickListener(v -> switchDirection(dirLeft));
         tvRight.setOnClickListener(v -> switchDirection(dirRight));
+
 
         focusStationId = getIntent().getStringExtra(EXTRA_FOCUS_STATION_ID);
         focusArsId     = getIntent().getStringExtra(EXTRA_FOCUS_ARS_ID);
