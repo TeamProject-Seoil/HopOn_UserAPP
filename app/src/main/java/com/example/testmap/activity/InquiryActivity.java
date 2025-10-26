@@ -27,7 +27,7 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-/** 공개 목록(비로그인 가능, 비밀글만 잠금) + 내 문의만 보기 토글 */
+/** 공개 목록(비로그인 가능, 비밀글은 잠금 표시) + 내 문의만 보기 토글 */
 public class InquiryActivity extends AppCompatActivity {
 
     private ImageButton btnBack;
@@ -43,47 +43,45 @@ public class InquiryActivity extends AppCompatActivity {
     @Nullable private String role   = null;
     @Nullable private String bearer = null;
 
-    @Nullable private String curStatus = null; // null=전체, OPEN|ANSWERED|CLOSED
+    /** 현재 탭 상태: null=전체, OPEN|ANSWERED|CLOSED */
+    @Nullable private String curStatus = null;
     private int page = 0, size = 20;
+
+    /** 로딩 상태/마지막 페이지 */
     private boolean loading = false, last = false;
 
+    /** 카운트 표시 */
     private long countAll=0, countOpen=0, countAnswered=0, countClosed=0;
 
     /** true=내 문의만 보기, false=공개 목록 */
     private boolean mineOnly = false;
+
+    /** 최신 화면 시퀀스 */
+    private long listReqSeq = 0L;
+    /** loading 플래그가 가리키는 요청 시퀀스 (스피너를 정확히 끄기 위함) */
+    private long loadingSeq = -1L;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_inquiry);
 
-        btnBack      = findViewById(R.id.btn_back);
-        btnAll       = findViewById(R.id.btn_all);
-        btnOpen      = findViewById(R.id.btn_open);
-        btnAnswered  = findViewById(R.id.btn_answered);
-        btnClosed    = findViewById(R.id.btn_closed);
-        btnMineToggle= findViewById(R.id.btn_mine);
-        btnWrite     = findViewById(R.id.btn_write);
-        recycler     = findViewById(R.id.recycler);
-        swipe        = findViewById(R.id.swipe);
-        viewLoginHint= findViewById(R.id.view_login_hint);
+        btnBack       = findViewById(R.id.btn_back);
+        btnAll        = findViewById(R.id.btn_all);
+        btnOpen       = findViewById(R.id.btn_open);
+        btnAnswered   = findViewById(R.id.btn_answered);
+        btnClosed     = findViewById(R.id.btn_closed);
+        btnMineToggle = findViewById(R.id.btn_mine);
+        btnWrite      = findViewById(R.id.btn_write);
+        recycler      = findViewById(R.id.recycler);
+        swipe         = findViewById(R.id.swipe);
+        viewLoginHint = findViewById(R.id.view_login_hint);
 
         btnBack.setOnClickListener(v -> finish());
 
-        // 기존
         adapter = new InquiryAdapter();
         recycler.setLayoutManager(new LinearLayoutManager(this));
         recycler.setAdapter(adapter);
-
-        // ✅ 추가: 어댑터 카운트 콜백 연결
-        adapter.setOnCountsChangeListener(c -> {
-            countAll      = c.all;
-            countOpen     = c.open;
-            countAnswered = c.answered;
-            countClosed   = c.closed;
-            applyFilterButtonText();  // 버튼 라벨 즉시 갱신
-        });
-
 
         btnAll.setOnClickListener(v -> selectStatus(null));
         btnOpen.setOnClickListener(v -> selectStatus("OPEN"));
@@ -98,8 +96,7 @@ public class InquiryActivity extends AppCompatActivity {
             mineOnly = !mineOnly;
             adapter.setPublicMode(!mineOnly);
             styleButtons();
-            // 카운트 소스도 전환
-            if (mineOnly) refreshCounts(); else refreshCountsPublic();
+            refreshAllCountsByMode();
             reloadFirst();
         });
 
@@ -128,8 +125,10 @@ public class InquiryActivity extends AppCompatActivity {
     @Override protected void onResume() {
         super.onResume();
         reloadFirst();
+        refreshAllCountsByMode();
     }
 
+    /** 로그인 여부/유저 정보 초기화 */
     private void initByAuth() {
         String access = TokenStore.getAccess(this);
         if (TextUtils.isEmpty(access)) {
@@ -142,7 +141,7 @@ public class InquiryActivity extends AppCompatActivity {
             recycler.setVisibility(android.view.View.VISIBLE);
             viewLoginHint.setVisibility(android.view.View.VISIBLE);
 
-            refreshCountsPublic();
+            refreshAllCountsByMode();
             selectStatus(null);
         } else {
             bearer = "Bearer " + access;
@@ -155,7 +154,7 @@ public class InquiryActivity extends AppCompatActivity {
                         adapter.setPublicMode(true);
                         btnMineToggle.setVisibility(Button.GONE);
                         viewLoginHint.setVisibility(android.view.View.VISIBLE);
-                        refreshCountsPublic();
+                        refreshAllCountsByMode();
                         selectStatus(null);
                         return;
                     }
@@ -166,7 +165,7 @@ public class InquiryActivity extends AppCompatActivity {
                     viewLoginHint.setVisibility(android.view.View.GONE);
 
                     adapter.setPublicMode(!mineOnly);
-                    if (mineOnly) refreshCounts(); else refreshCountsPublic();
+                    refreshAllCountsByMode();
                     selectStatus(null);
                 }
                 @Override public void onFailure(Call<ApiService.UserResponse> call, Throwable t) {
@@ -176,35 +175,42 @@ public class InquiryActivity extends AppCompatActivity {
                     adapter.setPublicMode(true);
                     btnMineToggle.setVisibility(Button.GONE);
                     viewLoginHint.setVisibility(android.view.View.VISIBLE);
-                    refreshCountsPublic();
+                    refreshAllCountsByMode();
                     selectStatus(null);
                 }
             });
         }
     }
 
-    /** 로그인 사용자(내 글) 카운트 */
-    private void refreshCounts() {
+    /* ----------------- Counts ----------------- */
+
+    private void refreshAllCountsByMode() {
+        if (mineOnly) refreshCountsMine();
+        else          refreshCountsPublic();
+    }
+
+    private void refreshCountsMine() {
         if (bearer == null) { refreshCountsPublic(); return; }
-        ApiClient.get().getMyInquiries(bearer, userId, email, role, 0, 1, "createdAt,desc", null, null)
+        String sort = "createdAt,desc";
+        ApiClient.get().getMyInquiries(bearer, userId, email, role, 0, 1, sort, null, null)
                 .enqueue(new CountCb(v -> { countAll = v; applyFilterButtonText(); }));
-        ApiClient.get().getMyInquiries(bearer, userId, email, role, 0, 1, "createdAt,desc", null, "OPEN")
+        ApiClient.get().getMyInquiries(bearer, userId, email, role, 0, 1, sort, null, "OPEN")
                 .enqueue(new CountCb(v -> { countOpen = v; applyFilterButtonText(); }));
-        ApiClient.get().getMyInquiries(bearer, userId, email, role, 0, 1, "createdAt,desc", null, "ANSWERED")
+        ApiClient.get().getMyInquiries(bearer, userId, email, role, 0, 1, sort, null, "ANSWERED")
                 .enqueue(new CountCb(v -> { countAnswered = v; applyFilterButtonText(); }));
-        ApiClient.get().getMyInquiries(bearer, userId, email, role, 0, 1, "createdAt,desc", null, "CLOSED")
+        ApiClient.get().getMyInquiries(bearer, userId, email, role, 0, 1, sort, null, "CLOSED")
                 .enqueue(new CountCb(v -> { countClosed = v; applyFilterButtonText(); }));
     }
 
-    /** 비로그인(공개 목록) 카운트 */
     private void refreshCountsPublic() {
-        ApiClient.get().getPublicInquiries(0, 1, "createdAt,desc", null, null)
+        String sort = "createdAt,desc";
+        ApiClient.get().getPublicInquiries(0, 1, sort, null, null)
                 .enqueue(new CountCb(v -> { countAll = v; applyFilterButtonText(); }));
-        ApiClient.get().getPublicInquiries(0, 1, "createdAt,desc", null, "OPEN")
+        ApiClient.get().getPublicInquiries(0, 1, sort, null, "OPEN")
                 .enqueue(new CountCb(v -> { countOpen = v; applyFilterButtonText(); }));
-        ApiClient.get().getPublicInquiries(0, 1, "createdAt,desc", null, "ANSWERED")
+        ApiClient.get().getPublicInquiries(0, 1, sort, null, "ANSWERED")
                 .enqueue(new CountCb(v -> { countAnswered = v; applyFilterButtonText(); }));
-        ApiClient.get().getPublicInquiries(0, 1, "createdAt,desc", null, "CLOSED")
+        ApiClient.get().getPublicInquiries(0, 1, sort, null, "CLOSED")
                 .enqueue(new CountCb(v -> { countClosed = v; applyFilterButtonText(); }));
     }
 
@@ -229,9 +235,12 @@ public class InquiryActivity extends AppCompatActivity {
         btnMineToggle.setText(mineOnly ? "내 문의만: 켬" : "내 문의만: 끔");
     }
 
+    /* ----------------- UI/데이터 ----------------- */
+
     private void selectStatus(@Nullable String st){
         curStatus = st;
         styleButtons();
+        refreshAllCountsByMode();
         reloadFirst();
     }
 
@@ -249,12 +258,30 @@ public class InquiryActivity extends AppCompatActivity {
         b.setBackgroundTintList((ColorStateList) null);
     }
 
-    private void reloadFirst(){ page = 0; last = false; requestPage(true); }
-    private void loadNext(){ if (last || loading) return; page++; requestPage(false); }
+    private void reloadFirst(){
+        page = 0; last = false;
 
-    private void requestPage(boolean clear){
-        if (loading) return;
+        // 새 시퀀스로 전환: 이전 로딩 상태 초기화
+        loading = false;
+        if (!swipe.isRefreshing()) swipe.setRefreshing(false);
+
+        listReqSeq++;
+        requestPage(true, listReqSeq);
+    }
+
+    private void loadNext(){
+        if (last) return;
+        requestPage(false, listReqSeq);
+    }
+
+    /** 최신 요청만 화면에 반영. 스피너/로딩은 loadingSeq 기준으로 안전하게 해제 */
+    private void requestPage(boolean clear, long mySeq){
+        // 같은 시퀀스에서만 로딩 중복 방지
+        if (loading && loadingSeq == mySeq) return;
+
         loading = true;
+        loadingSeq = mySeq;
+
         if (clear && !swipe.isRefreshing()) swipe.setRefreshing(true);
 
         String sort = "createdAt,desc";
@@ -262,7 +289,14 @@ public class InquiryActivity extends AppCompatActivity {
         Callback<ApiService.PageResponse<ApiService.InquiryResp>> cb = new Callback<>() {
             @Override public void onResponse(Call<ApiService.PageResponse<ApiService.InquiryResp>> call,
                                              Response<ApiService.PageResponse<ApiService.InquiryResp>> res) {
-                loading = false; swipe.setRefreshing(false);
+                // 로딩 해제: 해당 요청이 현재 로딩을 담당했을 때만
+                if (mySeq == loadingSeq) {
+                    loading = false;
+                    swipe.setRefreshing(false);
+                }
+                // 데이터 반영: 최신 시퀀스일 때만
+                if (mySeq != listReqSeq) return;
+
                 if (!res.isSuccessful() || res.body()==null){
                     if (clear) adapter.setData(List.of(), true);
                     Toast.makeText(InquiryActivity.this, "불러오기 실패(" + res.code() + ")", Toast.LENGTH_SHORT).show();
@@ -280,7 +314,12 @@ public class InquiryActivity extends AppCompatActivity {
                 applyFilterButtonText();
             }
             @Override public void onFailure(Call<ApiService.PageResponse<ApiService.InquiryResp>> call, Throwable t) {
-                loading = false; swipe.setRefreshing(false);
+                if (mySeq == loadingSeq) {
+                    loading = false;
+                    swipe.setRefreshing(false);
+                }
+                if (mySeq != listReqSeq) return;
+
                 if (clear) adapter.setData(List.of(), true);
                 Toast.makeText(InquiryActivity.this, "네트워크 오류", Toast.LENGTH_SHORT).show();
             }

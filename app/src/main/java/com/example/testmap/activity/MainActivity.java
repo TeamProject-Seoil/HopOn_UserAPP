@@ -484,7 +484,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (userPanel != null)      userPanel.setVisibility(View.VISIBLE);
         if (textUserName != null)   textUserName.setText(me.username != null ? me.username : me.userid);
 
-        if (btnLogout != null) btnLogout.setOnClickListener(v -> doLogout());
+        // ★ 확인 다이얼로그로 교체
+        if (btnLogout != null) btnLogout.setOnClickListener(v -> confirmLogout());
 
         if (me.hasProfileImage && imageProfile != null) {
             loadProfileImage(bearer);
@@ -510,6 +511,46 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
             @Override public void onFailure(retrofit2.Call<ResponseBody> call, Throwable t) { /* ignore */ }
         });
+    }
+
+    /** 머티리얼 커스텀 로그아웃 확인(리소스가 없으면 기본 다이얼로그로 폴백) */
+    private void confirmLogout() {
+        // 1) 커스텀 레이아웃 동적 탐색
+        int layoutId = getResources().getIdentifier("dialog_confirm_logout", "layout", getPackageName());
+        if (layoutId != 0) {
+            View content = getLayoutInflater().inflate(layoutId, null, false);
+            AlertDialog dialog = new MaterialAlertDialogBuilder(MainActivity.this)
+                    .setView(content)
+                    .create();
+
+            // 배경(옵션): bg_white_card가 있으면 적용, 없으면 투명
+            int bgId = getResources().getIdentifier("bg_white_card", "drawable", getPackageName());
+            if (dialog.getWindow() != null) {
+                dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            }
+
+            Button btnCancel = content.findViewById(R.id.btnCancel);
+            Button btnLogout = content.findViewById(R.id.btnLogout);
+            btnCancel.setOnClickListener(v -> dialog.dismiss());
+            btnLogout.setOnClickListener(v -> {
+                dialog.dismiss();
+                doLogout(); // 기존 로그아웃 로직 호출
+            });
+
+            dialog.show();
+            return;
+        }
+
+        // 2) 폴백: 기본 머티리얼 다이얼로그
+        new MaterialAlertDialogBuilder(MainActivity.this)
+                .setTitle("로그아웃")
+                .setMessage("정말 로그아웃 하시겠어요?")
+                .setNegativeButton("취소", (d, w) -> d.dismiss())
+                .setPositiveButton("로그아웃", (d, w) -> {
+                    d.dismiss();
+                    doLogout();
+                })
+                .show();
     }
 
     private void doLogout() {
@@ -1063,7 +1104,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         imageProfile = findViewById(R.id.image_profile);
         textUserName = findViewById(R.id.text_user_name);
         btnLogout    = findViewById(R.id.btn_logout);
-        if (btnLogout != null) btnLogout.setOnClickListener(v -> doLogout());
+        // ★ 확인 다이얼로그로 교체
+        if (btnLogout != null) btnLogout.setOnClickListener(v -> confirmLogout());
 
         View menuSection = findViewById(R.id.menu_section);
         if (menuSection != null) {

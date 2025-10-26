@@ -1,11 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!-- 원형 ShapeAppearance 오버레이 -->
+    <style name="Shape.Circle" parent="@style/ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
     <!-- 둥근 모서리 공통 -->
     <style name="MyButtonShape">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">16dp</item>
     </style>
+
+
+        <!-- 둥근(필) 모양 오버레이 -->
+        <style name="Shape.Pill" parent="@style/ShapeAppearance.Material3.SmallComponent">
+            <item name="cornerFamily">rounded</item>
+            <item name="cornerSize">999dp</item>
+        </style>
+
+        <!-- 빨간 필 버튼 공통 -->
+        <style name="Widget.App.RedFilledButton" parent="Widget.Material3.Button">
+            <item name="backgroundTint">@color/colorLogout</item>
+            <item name="android:textColor">@color/colorOnLogout</item>
+            <item name="iconTint">@color/colorOnLogout</item>
+            <item name="shapeAppearanceOverlay">@style/Shape.Pill</item>
+            <item name="rippleColor">@android:color/white</item>
+        </style>
+
+        <!-- 아웃라인 버튼 공통 -->
+        <style name="Widget.App.OutlinedPillButton" parent="Widget.Material3.Button.OutlinedButton">
+            <item name="shapeAppearanceOverlay">@style/Shape.Pill</item>
+        </style>
+
+
 
     <!-- Outlined 버튼 -->
     <style name="MyOutlinedButton" parent="Widget.Material3.Button.OutlinedButton">
