@@ -3,6 +3,7 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="blue">#4B93FF</color>
+    <color name="grayText">#666666</color>
     // colors.xml 에 색상 정의 (추천)
     <color name="bus_airport">#FF9800</color>
     <color name="bus_maeul">#4CAF50</color>
