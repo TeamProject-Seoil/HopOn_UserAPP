@@ -21,7 +21,8 @@ import retrofit2.http.*;
  * Retrofit2 API 정의
  * ✅ 2025-10 통합 수정판
  *  - Inquiry API 완전 통합 (비밀글, 비밀번호, multipart 포함)
- *  - Spring Boot InquiryController @RequestParam 구조와 일치
+ *  - Spring Boot Controller 구조와 정합성 맞춤
+ *  - NoticeController: markRead, unread-count, read 처리 추가
  *  - 기존 예약/공지/즐겨찾기/회원 API 유지
  */
 public interface ApiService {
@@ -61,16 +62,20 @@ public interface ApiService {
     class RegisterResponse { public boolean ok; public String message, userid, reason; }
     class CheckResponse { public boolean useridTaken, emailTaken; }
 
-    @POST("/auth/login") Call<AuthResponse> login(@Body AuthRequest body);
+    @POST("/auth/login")
+    Call<AuthResponse> login(@Body AuthRequest body);
+
     @FormUrlEncoded
     @POST("/auth/refresh")
     Call<AuthResponse> refresh(@Field("refreshToken") String token,
                                @Field("clientType") String c,
                                @Field("deviceId") String d);
+
     @Multipart
     @POST("/auth/register")
     Call<RegisterResponse> register(@Part("data") RequestBody dataJson,
                                     @Part MultipartBody.Part file);
+
     @GET("/auth/check")
     Call<CheckResponse> checkDup(@Query("userid") String userid,
                                  @Query("email") String email);
@@ -88,14 +93,17 @@ public interface ApiService {
     }
     @POST("/auth/email/send-code")
     Call<Map<String,Object>> sendEmail(@Body SendEmailCodeRequest req);
+
     @POST("/auth/email/verify-code")
     Call<Map<String,Object>> verifyEmail(@Body VerifyEmailCodeRequest req);
 
     // 비밀번호 관련
     @POST("/auth/find-id-after-verify")
     Call<Map<String,Object>> findIdAfterVerify(@Body Map<String,Object> body);
+
     @POST("/auth/reset-password-after-verify")
     Call<Map<String,Object>> resetPasswordAfterVerify(@Body Map<String,Object> body);
+
     @POST("/auth/verify-pw-user")
     Call<Map<String,Object>> verifyPwUser(@Header("Authorization") String bearer,
                                           @Body Map<String,Object> body);
@@ -111,9 +119,14 @@ public interface ApiService {
                                                    @Body VerifyCurrentPasswordRequest body);
 
     // 로그인 사용자
-    @GET("/users/me") Call<UserResponse> me(@Header("Authorization") String bearer);
-    @GET("/users/me/profile-image") Call<ResponseBody> meImage(@Header("Authorization") String bearer);
-    @POST("/auth/logout") Call<Map<String,Object>> logout(@Body LogoutRequest body);
+    @GET("/users/me")
+    Call<UserResponse> me(@Header("Authorization") String bearer);
+
+    @GET("/users/me/profile-image")
+    Call<ResponseBody> meImage(@Header("Authorization") String bearer);
+
+    @POST("/auth/logout")
+    Call<Map<String,Object>> logout(@Body LogoutRequest body);
 
     class UserResponse {
         public Long userNum; public String userid, username, email, tel, role;
@@ -134,6 +147,7 @@ public interface ApiService {
     Call<UserResponse> updateMe(@Header("Authorization") String bearer,
                                 @Part("data") RequestBody dataJson,
                                 @Part MultipartBody.Part file);
+
     class ChangePasswordRequest {
         public String currentPassword,newPassword;
         public ChangePasswordRequest(String c,String n){ currentPassword=c; newPassword=n; }
@@ -141,6 +155,7 @@ public interface ApiService {
     @POST("/users/me/password")
     Call<Map<String,Object>> changePassword(@Header("Authorization") String bearer,
                                             @Body ChangePasswordRequest body);
+
     class DeleteAccountRequest {
         public String currentPassword;
         public DeleteAccountRequest(String c){ currentPassword=c; }
@@ -155,10 +170,13 @@ public interface ApiService {
     @POST("/api/reservations")
     Call<ReservationResponse> createReservation(@Header("Authorization") String bearer,
                                                 @Body ReservationCreateRequest body);
+
     @GET("/api/reservations/active")
     Call<ReservationResponse> getActiveReservation(@Header("Authorization") String bearer);
+
     @GET("/api/reservations")
     Call<List<ReservationResponse>> getReservations(@Header("Authorization") String bearer);
+
     @DELETE("/api/reservations/{id}")
     Call<CancelResult> cancelReservationById(@Header("Authorization") String bearer,
                                              @Path("id") Long id);
@@ -169,8 +187,10 @@ public interface ApiService {
     @POST("/api/favorites")
     Call<FavoriteResponse> addFavorite(@Header("Authorization") String bearer,
                                        @Body FavoriteCreateRequest body);
+
     @GET("/api/favorites")
     Call<List<FavoriteResponse>> getFavorites(@Header("Authorization") String bearer);
+
     @DELETE("/api/favorites/{id}")
     Call<Void> deleteFavorite(@Header("Authorization") String bearer,
                               @Path("id") Long id);
@@ -206,17 +226,45 @@ public interface ApiService {
         public Long id; public String title,content,noticeType,targetRole;
         public long viewCount;
         public String createdAt,updatedAt;
+
+        // 선택: 읽음 정보가 Resp에 포함되는 경우 대비(없으면 null)
+        public String readAt;
     }
+    class UnreadCountResp { public long count; }
+
+    /**
+     * 목록 조회
+     * - 서버는 Authorization 또는 내부 Resolver로 사용자 식별
+     * - 로그인 시 read 포함 응답 가능
+     */
     @GET("/api/notices")
-    Call<PageResponse<NoticeResp>> getNotices(@Header("X-User-Role") String role,
+    Call<PageResponse<NoticeResp>> getNotices(@Header("Authorization") String bearer,
+                                              @Header("X-User-Role") String role, // 선택적
                                               @Query("page") int page,
                                               @Query("size") int size,
                                               @Query("sort") String sort,
                                               @Query("q") String q,
                                               @Query("type") String type);
+
+    /**
+     * 상세 조회
+     * - 조회수 증가(increase), 읽음 처리(markRead) 플래그 지원
+     *   (NoticeController: @RequestParam(defaultValue="true"))
+     */
     @GET("/api/notices/{id}")
-    Call<NoticeResp> getNoticeDetail(@Path("id") Long id,
-                                     @Query("increase") boolean increase);
+    Call<NoticeResp> getNoticeDetail(@Header("Authorization") String bearer,
+                                     @Path("id") Long id,
+                                     @Query("increase") boolean increase,
+                                     @Query("markRead") boolean markRead);
+
+    /** 미확인 개수 */
+    @GET("/api/notices/unread-count")
+    Call<UnreadCountResp> getNoticeUnreadCount(@Header("Authorization") String bearer);
+
+    /** 특정 Notice 읽음 처리 */
+    @POST("/api/notices/{id}/read")
+    Call<Void> markNoticeRead(@Header("Authorization") String bearer,
+                              @Path("id") Long id);
 
     // =========================================================
     // ================== 문의(Inquiry) API =====================

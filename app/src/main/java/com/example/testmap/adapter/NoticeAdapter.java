@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-/** 공지 카드 어댑터: id 기반으로 확장 상태 유지 + 애니메이션 안전 처리 */
+/** 공지 카드 어댑터: id 기반 확장 상태 유지 + 애니메이션 안전 처리 + 비로그인시 read-dot 비표시 */
 public class NoticeAdapter extends RecyclerView.Adapter<NoticeAdapter.VH> {
 
     public interface OnItemToggle {
@@ -36,12 +36,17 @@ public class NoticeAdapter extends RecyclerView.Adapter<NoticeAdapter.VH> {
     public void setOnItemToggle(OnItemToggle l) { this.toggleListener = l; }
 
     private final List<ApiService.NoticeResp> items = new ArrayList<>();
-    /** 현재 펼쳐진 항목들의 id 집합 (포지션 재활용 영향 없음) */
+    /** 현재 펼쳐진 항목들의 id 집합 */
     private final Set<Long> expandedIds = new HashSet<>();
 
-    public NoticeAdapter() {
-        setHasStableIds(true);
+    /** 로그인 여부에 따른 읽음 dot 표시 스위치 */
+    private boolean showReadDot = true;
+    public void setShowReadDot(boolean show) {
+        this.showReadDot = show;
+        notifyDataSetChanged();
     }
+
+    public NoticeAdapter() { setHasStableIds(true); }
 
     public void setData(List<ApiService.NoticeResp> list, boolean clear) {
         if (clear) {
@@ -73,9 +78,11 @@ public class NoticeAdapter extends RecyclerView.Adapter<NoticeAdapter.VH> {
         h.content.setText(s(n.content));
         h.badge.setText(mapTypeLabel(n.noticeType));
         h.date.setText(formatDateDot(n.createdAt));
-
-        // ▶ 조회수 표시 (세 자리 콤마)
         h.viewCount.setText("조회수 " + formatCount(n.viewCount));
+
+        // 로그인 X면 dot 숨김, 로그인 O면 readAt 비었을 때만 표시
+        boolean unread = TextUtils.isEmpty(n.readAt);
+        h.readDot.setVisibility((showReadDot && unread) ? View.VISIBLE : View.GONE);
 
         @ColorInt int selectedBg = 0xFFE8F0FE;
         @ColorInt int white = 0xFFFFFFFF;
@@ -107,6 +114,9 @@ public class NoticeAdapter extends RecyclerView.Adapter<NoticeAdapter.VH> {
                 h.content.setAlpha(0f);
                 h.content.setVisibility(View.VISIBLE);
                 h.content.animate().alpha(1f).setDuration(160).setListener(null).start();
+
+                // 펼치면 dot 숨김(실제 읽음 처리 여부는 Activity에서 관리)
+                if (showReadDot) h.readDot.setVisibility(View.GONE);
             } else {
                 h.content.animate().alpha(0f).setDuration(140)
                         .setListener(new AnimatorListenerAdapter() {
@@ -129,17 +139,19 @@ public class NoticeAdapter extends RecyclerView.Adapter<NoticeAdapter.VH> {
     static class VH extends RecyclerView.ViewHolder {
         CardView card;
         View container, header;
-        TextView badge, title, date, viewCount, content; // ← viewCount 추가
+        View readDot;
+        TextView badge, title, date, viewCount, content;
         ImageView arrow;
         VH(@NonNull View v) {
             super(v);
             card = (CardView) v;
             container = v.findViewById(R.id.container);
             header = v.findViewById(R.id.header);
+            readDot = v.findViewById(R.id.read_dot);
             badge = v.findViewById(R.id.badge);
             title = v.findViewById(R.id.title);
             date  = v.findViewById(R.id.date);
-            viewCount = v.findViewById(R.id.view_count); // ← 바인딩
+            viewCount = v.findViewById(R.id.view_count);
             content = v.findViewById(R.id.content);
             arrow = v.findViewById(R.id.arrow);
         }
@@ -157,18 +169,19 @@ public class NoticeAdapter extends RecyclerView.Adapter<NoticeAdapter.VH> {
 
     private static String mapTypeLabel(String type) {
         if (type == null) return "공지";
-        return switch (type) {
-            case "INFO" -> "공지";
-            case "UPDATE" -> "업데이트";
-            case "MAINTENANCE" -> "점검";
-            default -> "공지";
-        };
+        switch (type) {
+            case "INFO": return "공지";
+            case "UPDATE": return "업데이트";
+            case "MAINTENANCE": return "점검";
+            default: return "공지";
+        }
     }
 
     /** ISO-8601 → yyyy.MM.dd */
     private static String formatDateDot(String iso) {
         if (TextUtils.isEmpty(iso) || iso.length() < 10) return "";
-        return iso.substring(0, 10).replace("-", ".");
+        return iso.substring(0,10).replace("-", ".");
+        // 필요 시 SimpleDateFormat으로 안전 변환 가능
     }
 
     private static String formatCount(long v) {

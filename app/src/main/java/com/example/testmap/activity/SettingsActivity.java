@@ -44,8 +44,8 @@ public class SettingsActivity extends AppCompatActivity {
     private ImageView imageProfile;
     private SwitchCompat switchNotice;
 
-    // 문의 이동 버튼
-    private LinearLayout btnAppInquiry;
+    private LinearLayout btnTermsPrivacy;   // 약관/개인정보
+    private LinearLayout btnAppInquiry;     // 문의 목록
 
     // me() 결과에서 세션 정보
     private String sessionUserId = null;
@@ -57,6 +57,7 @@ public class SettingsActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
 
+        btnTermsPrivacy  = findViewById(R.id.btn_terms_privacy);
         btnBack          = findViewById(R.id.btn_back_settings);
         sectionLogin     = findViewById(R.id.section_login);
         viewLoggedIn     = findViewById(R.id.view_logged_in);
@@ -72,6 +73,12 @@ public class SettingsActivity extends AppCompatActivity {
         btnBack.setOnClickListener(v -> finish());
         sectionLogin.setOnClickListener(v -> startActivity(new Intent(this, LoginActivity.class)));
 
+        // ✅ 약관 및 개인정보 이동 - onCreate에서 바로 연결
+        if (btnTermsPrivacy != null) {
+            btnTermsPrivacy.setOnClickListener(v ->
+                    startActivity(new Intent(SettingsActivity.this, TermsPrivacyActivity.class)));
+        }
+
         // 계정 수정(비밀번호 재확인 다이얼로그)
         btnEditAccount.setOnClickListener(v -> showVerifyPasswordDialog());
 
@@ -85,7 +92,7 @@ public class SettingsActivity extends AppCompatActivity {
                 Toast.makeText(this, "공지사항 알림: " + (checked ? "ON" : "OFF"), Toast.LENGTH_SHORT).show()
         );
 
-        // ★ 어플리케이션 문의 화면으로 이동 (목록 화면)
+        // 어플리케이션 문의 화면으로 이동 (목록 화면)
         btnAppInquiry.setOnClickListener(v ->
                 startActivity(new Intent(this, InquiryActivity.class))
         );
@@ -269,6 +276,8 @@ public class SettingsActivity extends AppCompatActivity {
             if (actionId == EditorInfo.IME_ACTION_DONE) { btnOk.performClick(); return true; }
             return false;
         });
+
+        // ❌ (삭제) 여기에서 btnTermsPrivacy 리스너를 등록하지 않습니다.
 
         btnOk.setOnClickListener(v -> {
             String pwd = et.getText() == null ? "" : et.getText().toString().trim();
@@ -469,7 +478,7 @@ public class SettingsActivity extends AppCompatActivity {
             case "검정": color = Color.BLACK; break;
         }
 
-        // ✅ 색상값을 SharedPreferences에 저장
+        // 색상값을 SharedPreferences에 저장
         SharedPreferences prefs = getSharedPreferences("settings", MODE_PRIVATE);
         prefs.edit().putInt("arrival_text_color", color).apply();
 

@@ -41,6 +41,24 @@
             android:src="@drawable/ic_star"
             android:layout_gravity="top|start" />
 
+        <TextView
+            android:id="@+id/menu_notice_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_marginStart="56dp"
+            android:layout_marginTop="42dp"
+            android:minWidth="18dp"
+            android:minHeight="18dp"
+            android:paddingHorizontal="5dp"
+            android:paddingVertical="1dp"
+            android:gravity="center"
+            android:text="0"
+            android:textColor="@android:color/white"
+            android:textSize="11sp"
+            android:visibility="gone"
+            android:background="@drawable/bg_badge_red"/>
+
         <FrameLayout
             android:id="@+id/bottom_sheet_layout"
             android:layout_width="match_parent"

@@ -2,51 +2,51 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#F6F6F6">
 
-    <!-- ===== 상단 헤더 (복구) ===== -->
+    <!-- ===== 상단 헤더 ===== -->
     <View
         android:id="@+id/top_bar"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="100dp"
         android:background="#4B93FF"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- 뒤로가기 (복구) -->
+    <!-- 뒤로가기 -->
     <ImageButton
         android:id="@+id/registerButtonBack"
-        android:layout_width="48dp"
-        android:layout_height="39dp"
-        android:layout_marginStart="15dp"
-        android:layout_marginTop="50dp"
-        android:background="@android:color/transparent"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="뒤로가기 버튼"
         android:src="@drawable/ic_back"
+        app:tint="@android:color/white"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="@id/top_bar"
+        app:layout_constraintBottom_toBottomOf="@id/top_bar"
+        android:layout_marginStart="12dp" />
 
-    <!-- 타이틀 (복구) -->
+    <!-- 타이틀 -->
     <TextView
         android:id="@+id/textTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="50dp"
         android:text="회원탈퇴"
-        android:textColor="#FFFFFF"
-        android:textSize="30sp"
+        android:textColor="@android:color/white"
         android:textStyle="bold"
-        app:layout_constraintTop_toTopOf="parent"
+        android:textSize="22sp"
+        android:includeFontPadding="false"
+        app:layout_constraintTop_toTopOf="@id/top_bar"
+        app:layout_constraintBottom_toBottomOf="@id/top_bar"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.5" />
+        app:layout_constraintEnd_toEndOf="parent" />
     <!-- ===== 헤더 끝 ===== -->
 
-    <!-- ===== 내용 카드 (기존 유지) ===== -->
+    <!-- ===== 내용 카드 ===== -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/card"
         android:layout_width="0dp"
@@ -57,10 +57,10 @@
         app:cardCornerRadius="16dp"
         app:cardElevation="6dp"
         app:cardUseCompatPadding="true"
+        app:layout_constraintTop_toBottomOf="@id/top_bar"
         app:layout_constraintBottom_toTopOf="@+id/actions_bar"
-        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/top_bar">
+        app:layout_constraintEnd_toEndOf="parent">
 
         <ScrollView
             android:layout_width="match_parent"
@@ -187,7 +187,7 @@
         </ScrollView>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- 하단 액션 바 -->
+    <!-- ===== 하단 액션 바 ===== -->
     <LinearLayout
         android:id="@+id/actions_bar"
         android:layout_width="0dp"

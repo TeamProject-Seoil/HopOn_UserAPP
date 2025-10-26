@@ -29,6 +29,7 @@
         <activity android:name=".activity.SettingsActivity"/>
         <activity android:name=".activity.BusRouteActivity"/>
         <activity android:name=".activity.FindAccountActivity" />
+        <activity android:name=".activity.TermsPrivacyActivity" />
         <activity
             android:name=".activity.InquiryActivity"
             android:exported="false"

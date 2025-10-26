@@ -229,7 +229,11 @@ public class UserQuitActivity extends AppCompatActivity {
     }
 
     private void goMain() {
-        startActivity(new Intent(UserQuitActivity.this, MainActivity.class));
+        // 스택에 SettingsActivity가 있으면 그 위만 정리하고 복귀
+        startActivity(
+                new Intent(UserQuitActivity.this, SettingsActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        );
         finish();
     }
 

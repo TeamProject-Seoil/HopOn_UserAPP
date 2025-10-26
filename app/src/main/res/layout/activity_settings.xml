@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:layout_constraintTop_toBottomOf="@id/card_account"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#FFFFFF">
@@ -10,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <!-- ===== 상단 바 (정리됨) ===== -->
+        <!-- ===== 상단 바 ===== -->
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="88dp"
@@ -58,35 +59,36 @@
                     android:textSize="22sp"
                     android:textStyle="bold" />
             </LinearLayout>
-
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!-- ===== 본문 시작 ===== -->
+        <!-- ===== 계정 정보 카드 ===== -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="16dp"
+            android:text="계정 정보"
+            android:textColor="#888888"
+            android:textSize="12sp" />
+
         <LinearLayout
+            android:id="@+id/card_account"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
-
-            <!-- 계정 정보 -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="계정 정보"
-                android:textColor="#888888"
-                android:textSize="12sp" />
+            android:background="@android:color/white">
 
             <!-- 로그인 유도 -->
             <LinearLayout
                 android:id="@+id/section_login"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:clickable="true"
-                android:focusable="true"
+                android:layout_height="54dp"
+                android:paddingHorizontal="16dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingVertical="16dp"
+                android:clickable="true"
+                android:focusable="true"
                 android:foreground="?attr/selectableItemBackground">
 
                 <TextView
@@ -102,13 +104,12 @@
                     android:src="@drawable/ic_arrow_right" />
             </LinearLayout>
 
-            <!-- 로그인 상태 뷰 -->
+            <!-- 로그인 상태 (필요시 VISIBLE) -->
             <LinearLayout
                 android:id="@+id/view_logged_in"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingVertical="16dp"
                 android:visibility="gone">
 
                 <ImageView
@@ -116,6 +117,7 @@
                     android:layout_width="80dp"
                     android:layout_height="80dp"
                     android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="16dp"
                     android:layout_marginBottom="16dp"
                     android:src="@drawable/ic_profile"
                     android:scaleType="centerCrop"
@@ -125,7 +127,9 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:paddingHorizontal="16dp"
+                    android:paddingBottom="8dp">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -172,16 +176,15 @@
                         android:textSize="16sp" />
                 </LinearLayout>
 
-                <!-- 계정 정보 수정 -->
                 <LinearLayout
                     android:id="@+id/btn_edit_account"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:clickable="true"
-                    android:focusable="true"
+                    android:layout_height="54dp"
+                    android:paddingHorizontal="16dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
-                    android:paddingVertical="16dp"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:foreground="?attr/selectableItemBackground">
 
                     <TextView
@@ -197,82 +200,127 @@
                         android:src="@drawable/ic_arrow_right" />
                 </LinearLayout>
             </LinearLayout>
+        </LinearLayout>
 
-            <!-- 구분선 -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1.5dp"
-                android:background="#DDDDDD" />
+        <!-- 섹션 구분 띠 (풀-블리드) -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:background="#F4F6F8" />
 
-            <!-- 앱 정보 -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="앱 정보"
-                android:textColor="#888888"
-                android:textSize="12sp" />
+        <!-- ===== 앱 정보 카드 ===== -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="12dp"
+            android:text="앱 정보"
+            android:textColor="#9AA1A9"
+            android:textSize="12sp" />
 
-            <!-- 앱 버전 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@android:color/white">
+
             <LinearLayout
+                android:id="@+id/btn_terms_privacy"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="54dp"
+                android:paddingHorizontal="16dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingVertical="16dp">
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="앱 버전"
-                    android:textSize="16sp" />
+                    android:text="약관 및 개인정보"
+                    android:textColor="#111111"
+                    android:textSize="15sp"/>
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="4dp"
-                    android:text="0.0.0"
-                    android:textColor="#F44336"
-                    android:textSize="14sp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="(최신 버전 이용중)"
-                    android:textColor="#888888"
-                    android:textSize="14sp" />
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/chevron_right"
+                    app:tint="#C0C5CC"/>
             </LinearLayout>
 
-            <!-- 구분선 -->
-            <View
+            <com.google.android.material.divider.MaterialDivider
                 android:layout_width="match_parent"
-                android:layout_height="1.5dp"
-                android:background="#DDDDDD" />
-
-            <!-- 알림 -->
-            <TextView
-                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="알림"
-                android:textColor="#888888"
-                android:textSize="12sp" />
+                app:dividerInsetStart="0dp"
+                app:dividerInsetEnd="0dp"
+                app:thickness="1dp"
+                app:dividerColor="#EEEEEE" />
 
-            <!-- 공지사항 알림 -->
+            <LinearLayout
+                android:id="@+id/rowVersion"
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:paddingHorizontal="16dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="버전 정보"
+                    android:textColor="#111111"
+                    android:textSize="15sp"/>
+
+                <TextView
+                    android:id="@+id/tvVersionRight"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="최신 버전 v1.0.0"
+                    android:textColor="#9AA1A9"
+                    android:textSize="13sp"
+                    android:paddingEnd="4dp"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 섹션 구분 띠 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:background="#F4F6F8" />
+
+        <!-- ===== 알림 카드 ===== -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="12dp"
+            android:text="알림"
+            android:textColor="#9AA1A9"
+            android:textSize="12sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@android:color/white">
+
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingVertical="16dp">
+                android:layout_height="54dp"
+                android:paddingHorizontal="16dp"
+                android:gravity="center_vertical">
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="공지사항 알림 수신 여부"
-                    android:textSize="16sp" />
+                    android:textColor="#111111"
+                    android:textSize="15sp" />
 
                 <androidx.appcompat.widget.SwitchCompat
                     android:id="@+id/switch_notice"
@@ -280,16 +328,22 @@
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
-            <!-- 승차 알림 -->
+            <com.google.android.material.divider.MaterialDivider
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:dividerInsetStart="0dp"
+                app:dividerInsetEnd="0dp"
+                app:thickness="1dp"
+                app:dividerColor="#EEEEEE" />
+
             <LinearLayout
                 android:id="@+id/btn_bus_boarding"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="54dp"
+                android:paddingHorizontal="16dp"
+                android:gravity="center_vertical"
                 android:clickable="true"
                 android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingVertical="16dp"
                 android:foreground="?attr/selectableItemBackground">
 
                 <TextView
@@ -297,24 +351,32 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="버스 승차 알림 (N분 전 안내)"
-                    android:textSize="16sp" />
+                    android:textColor="#111111"
+                    android:textSize="15sp" />
 
                 <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_arrow_right" />
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/chevron_right"
+                    app:tint="#C0C5CC"/>
             </LinearLayout>
 
-            <!-- 하차 알림 -->
+            <com.google.android.material.divider.MaterialDivider
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:dividerInsetStart="0dp"
+                app:dividerInsetEnd="0dp"
+                app:thickness="1dp"
+                app:dividerColor="#EEEEEE" />
+
             <LinearLayout
                 android:id="@+id/btn_bus_alighting"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="54dp"
+                android:paddingHorizontal="16dp"
+                android:gravity="center_vertical"
                 android:clickable="true"
                 android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingVertical="16dp"
                 android:foreground="?attr/selectableItemBackground">
 
                 <TextView
@@ -322,39 +384,48 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="버스 하차 알림 (N정거장 전 안내)"
-                    android:textSize="16sp" />
+                    android:textColor="#111111"
+                    android:textSize="15sp" />
 
                 <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_arrow_right" />
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/chevron_right"
+                    app:tint="#C0C5CC"/>
             </LinearLayout>
+        </LinearLayout>
 
-            <!-- 구분선 -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1.5dp"
-                android:background="#DDDDDD" />
+        <!-- 섹션 구분 띠 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:background="#F4F6F8" />
 
-            <!-- 서비스 -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="서비스"
-                android:textColor="#888888"
-                android:textSize="12sp" />
+        <!-- ===== 서비스 카드 ===== -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="12dp"
+            android:text="서비스"
+            android:textColor="#9AA1A9"
+            android:textSize="12sp" />
 
-            <!-- 자동 새로고침 주기 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@android:color/white">
+
             <LinearLayout
                 android:id="@+id/btn_auto_refresh"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="54dp"
+                android:paddingHorizontal="16dp"
+                android:gravity="center_vertical"
                 android:clickable="true"
                 android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingVertical="16dp"
                 android:foreground="?attr/selectableItemBackground">
 
                 <TextView
@@ -362,24 +433,32 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="자동 새로고침 주기"
-                    android:textSize="16sp" />
+                    android:textColor="#111111"
+                    android:textSize="15sp" />
 
                 <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_arrow_right" />
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/chevron_right"
+                    app:tint="#C0C5CC"/>
             </LinearLayout>
 
-            <!-- 도착정보 노출 기준 -->
+            <com.google.android.material.divider.MaterialDivider
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:dividerInsetStart="0dp"
+                app:dividerInsetEnd="0dp"
+                app:thickness="1dp"
+                app:dividerColor="#EEEEEE" />
+
             <LinearLayout
                 android:id="@+id/btn_arrival_display_criteria"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="54dp"
+                android:paddingHorizontal="16dp"
+                android:gravity="center_vertical"
                 android:clickable="true"
                 android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingVertical="16dp"
                 android:foreground="?attr/selectableItemBackground">
 
                 <TextView
@@ -387,24 +466,32 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="버스 도착정보 노출 기준"
-                    android:textSize="16sp" />
+                    android:textColor="#111111"
+                    android:textSize="15sp" />
 
                 <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_arrow_right" />
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/chevron_right"
+                    app:tint="#C0C5CC"/>
             </LinearLayout>
 
-            <!-- 텍스트 색상 -->
+            <com.google.android.material.divider.MaterialDivider
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:dividerInsetStart="0dp"
+                app:dividerInsetEnd="0dp"
+                app:thickness="1dp"
+                app:dividerColor="#EEEEEE" />
+
             <LinearLayout
                 android:id="@+id/btn_arrival_text_color"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="54dp"
+                android:paddingHorizontal="16dp"
+                android:gravity="center_vertical"
                 android:clickable="true"
                 android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingVertical="16dp"
                 android:foreground="?attr/selectableItemBackground">
 
                 <TextView
@@ -412,88 +499,101 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="버스 도착정보 텍스트 색상"
-                    android:textSize="16sp" />
+                    android:textColor="#111111"
+                    android:textSize="15sp" />
 
                 <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_arrow_right" />
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/chevron_right"
+                    app:tint="#C0C5CC"/>
             </LinearLayout>
+        </LinearLayout>
 
-            <!-- 구분선 -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1.5dp"
-                android:background="#DDDDDD" />
+        <!-- 섹션 구분 띠 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:background="#F4F6F8" />
 
-            <!-- 고객 지원 -->
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="고객 지원"
-                android:textColor="#888888"
-                android:textSize="12sp" />
+        <!-- ===== 고객 지원(문의) 카드 — 하단 배치 ===== -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="12dp"
+            android:text="고객 지원"
+            android:textColor="#9AA1A9"
+            android:textSize="12sp" />
 
-            <!-- 어플 문의 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@android:color/white">
+
             <LinearLayout
                 android:id="@+id/btn_app_inquiry"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="54dp"
+                android:paddingHorizontal="16dp"
+                android:gravity="center_vertical"
                 android:clickable="true"
                 android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingVertical="16dp"
                 android:foreground="?attr/selectableItemBackground">
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="어플리케이션 문의"
-                    android:textSize="16sp" />
+                    android:text="문의"
+                    android:textColor="#111111"
+                    android:textSize="15sp"/>
 
                 <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_arrow_right" />
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/chevron_right"
+                    app:tint="#C0C5CC"/>
             </LinearLayout>
-
-            <!-- ===== 로그인 시 노출: 회원 탈퇴 ===== -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1.5dp"
-                android:background="#DDDDDD" />
-
-            <LinearLayout
-                android:id="@+id/btn_delete_account"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingVertical="16dp"
-                android:foreground="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:visibility="gone">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="회원 탈퇴"
-                    android:textSize="16sp"
-                    android:textColor="#D32F2F"
-                    android:textStyle="bold" />
-
-                <ImageView
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="#D32F2F" />
-            </LinearLayout>
-
         </LinearLayout>
+
+        <!-- 섹션 구분 띠 -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:background="#F4F6F8" />
+
+        <!-- ===== 회원 탈퇴 (로그인 시) ===== -->
+        <LinearLayout
+            android:id="@+id/btn_delete_account"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="16dp"
+            android:gravity="center_vertical"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="회원 탈퇴"
+                android:textSize="16sp"
+                android:textColor="#D32F2F"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_arrow_right"
+                app:tint="#D32F2F" />
+        </LinearLayout>
+
     </LinearLayout>
 </ScrollView>

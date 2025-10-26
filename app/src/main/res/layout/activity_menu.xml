@@ -201,22 +201,26 @@
         </LinearLayout>
 
         <!-- 공지사항 (행 전체 클릭) -->
-        <LinearLayout
+        <!-- 공지사항 (행 전체 클릭) -->
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/row_notice"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
+            android:layout_height="48dp"
             android:background="?attr/selectableItemBackground"
-            android:paddingVertical="10dp"
             android:clickable="true"
-            android:focusable="true">
+            android:focusable="true"
+            android:paddingStart="0dp"
+            android:paddingEnd="0dp">
 
             <ImageView
                 android:id="@+id/icon_notice"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:src="@drawable/ic_notice"/>
+                android:layout_marginStart="0dp"
+                android:src="@drawable/ic_notice"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent" />
 
             <Button
                 android:id="@+id/btn_notice"
@@ -228,8 +232,32 @@
                 android:background="@android:color/transparent"
                 android:textSize="18sp"
                 android:clickable="false"
-                android:focusable="false"/>
-        </LinearLayout>
+                android:focusable="false"
+                app:layout_constraintStart_toEndOf="@id/icon_notice"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent" />
+
+            <!-- 🔴 오른쪽 끝 배지 -->
+            <TextView
+                android:id="@+id/row_notice_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="20dp"
+                android:minHeight="20dp"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:gravity="center"
+                android:text="0"
+                android:textColor="@android:color/white"
+                android:textSize="12sp"
+                android:visibility="gone"
+                android:background="@drawable/bg_badge_red"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"/>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
 
         <!-- 오픈소스 활용정보 (행 전체 클릭) -->
         <LinearLayout
@@ -297,7 +325,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="1. 설정 → 어플리케이션 문의"
+            android:text="1. 설정 → 문의"
             android:textColor="#888888"
             android:textSize="12sp"
             app:layout_constraintStart_toStartOf="parent"

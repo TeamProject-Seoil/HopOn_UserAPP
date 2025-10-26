@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 윗줄: 진한 회색 (눈에 보이도록 톤 업) -->
+    <item android:gravity="top">
+        <shape android:shape="rectangle">
+            <size android:height="1dp"/>
+            <solid android:color="#D0D5DD"/>  <!-- 기존 #E2E5EA 보다 진하게 -->
+        </shape>
+    </item>
+
+    <!-- 아랫줄: 아주 옅은 회색(하이라이트 느낌) -->
+    <item android:top="1dp">
+        <shape android:shape="rectangle">
+            <size android:height="1dp"/>
+            <solid android:color="#F4F6F8"/>  <!-- 기존 #F5F7FA와 비슷하지만 약간 더 존재감 -->
+        </shape>
+    </item>
+
+</layer-list>

@@ -89,6 +89,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private View layoutMenu, layoutFavorites;
     private NaverMap naverMap;
 
+    private TextView badgeMenuNotice;      // 지도 화면 상단 메뉴 버튼 옆
+    private TextView badgeRowNotice;
+
     // 위치 권한
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1000;
     private FusedLocationSource locationSource;
@@ -148,6 +151,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
+        badgeMenuNotice = findViewById(R.id.menu_notice_badge);
+        // initDrawerSections() 내, layoutMenu != null 블록 안 적당한 위치
+        badgeRowNotice = (layoutMenu != null) ? layoutMenu.findViewById(R.id.row_notice_badge) : null;
+
         // (활성 예약) 바텀시트: 서버에 “현재 진행중 예약”이 있을 때만 표시
         bottomSheet = findViewById(R.id.bottom_sheet_layout);
         bottomBehavior = BottomSheetBehavior.from(bottomSheet);
@@ -179,6 +186,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Drawer 버튼
         if (menuButton != null) {
             menuButton.setOnClickListener(view -> {
+                refreshNoticeUnreadBadges(); // ← 추가
                 if (layoutFavorites != null) layoutFavorites.setVisibility(View.GONE);
                 if (layoutMenu != null)      layoutMenu.setVisibility(View.VISIBLE);
                 if (drawerLayout != null)    drawerLayout.openDrawer(GravityCompat.START);
@@ -186,6 +194,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
         if (favoriteButton != null) {
             favoriteButton.setOnClickListener(view -> {
+                refreshNoticeUnreadBadges(); // ← 추가(옵션)
                 String access = TokenStore.getAccess(MainActivity.this);
                 if (TextUtils.isEmpty(access)) {
                     // 로그인 필요 다이얼로그
@@ -250,6 +259,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         renderHeaderByAuth();
         ensureLocationTracking();
         fetchAndShowActiveReservation();
+        refreshNoticeUnreadBadges();
     }
     @Override protected void onPause()  { super.onPause();  mapView.onPause(); }
     @Override protected void onStop()   { super.onStop();   mapView.onStop(); }
@@ -487,6 +497,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (userPanel != null)      userPanel.setVisibility(View.GONE);
         if (loginButton != null)    loginButton.setVisibility(View.VISIBLE);
         if (registerButton != null) registerButton.setVisibility(View.VISIBLE);
+
+        onLoggedOutCleanup();
     }
 
     private void loadProfileImage(String bearer) {
@@ -902,6 +914,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             if (backIconMenu != null) backIconMenu.setOnClickListener(v -> {
                 if (drawerLayout != null) drawerLayout.closeDrawer(GravityCompat.START);
             });
+
+            badgeRowNotice = layoutMenu.findViewById(R.id.row_notice_badge);
         }
 
         // 즐겨찾기 섹션
@@ -1076,6 +1090,53 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
+    private void refreshNoticeUnreadBadges() {
+        // 로그인 안돼있으면 둘 다 숨김
+        String access = TokenStore.getAccess(getApplicationContext());
+        if (TextUtils.isEmpty(access)) {
+            setBadgeCount(badgeMenuNotice, 0);
+            setBadgeCount(badgeRowNotice, 0);
+            return;
+        }
+        String bearer = "Bearer " + access;
+
+        // 서버에서 안읽음 개수 조회
+        ApiClient.get().getNoticeUnreadCount(bearer)
+                .enqueue(new retrofit2.Callback<ApiService.UnreadCountResp>() {
+                    @Override public void onResponse(retrofit2.Call<ApiService.UnreadCountResp> call,
+                                                     retrofit2.Response<ApiService.UnreadCountResp> res) {
+                        long c = 0L;
+                        if (res.isSuccessful() && res.body()!=null) c = Math.max(0L, res.body().count);
+                        applyNoticeBadgeCount(c);
+                    }
+                    @Override public void onFailure(retrofit2.Call<ApiService.UnreadCountResp> call, Throwable t) {
+                        // 실패 시 숨김(또는 직전값 유지하고 싶으면 no-op)
+                        applyNoticeBadgeCount(0L);
+                    }
+                });
+    }
+
+    private void applyNoticeBadgeCount(long count) {
+        setBadgeCount(badgeMenuNotice, count);
+        setBadgeCount(badgeRowNotice, count);
+    }
+
+    // 공통: 0이면 GONE, 있으면 표시(99+ 처리)
+    private void setBadgeCount(@Nullable TextView badge, long count) {
+        if (badge == null) return;
+        if (count <= 0) {
+            badge.setVisibility(View.GONE);
+        } else {
+            badge.setText(count > 99 ? "99+" : String.valueOf(count));
+            if (badge.getVisibility() != View.VISIBLE) {
+                badge.setScaleX(0.8f);
+                badge.setScaleY(0.8f);
+                badge.setAlpha(0f);
+                badge.setVisibility(View.VISIBLE);
+                badge.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(140).start();
+            }
+        }
+    }
 
     private void clearAllFavorites() {
         String access = TokenStore.getAccess(this);
@@ -1345,6 +1406,31 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private static String empty(String s){ return s==null? "": s; }
 
+    /** 로그아웃 후 UI/메모리 싹 정리 */
+    private void onLoggedOutCleanup() {
+        // 공지 배지 숨김
+        applyNoticeBadgeCount(0L);
+
+        // 바텀시트/예약 상태 초기화
+        boundReservation = null;
+        currentReservationId = null;
+        hasActiveReservation = false;
+        bottomSheetIsFav = false;
+        bottomSheetFavId = null;
+        updateReservationSheetVisibility(false, false);
+        dismissArrivalsSheetIfShown();
+
+        // 즐겨찾기/최근내역 메모리 & 화면 비우기
+        favItems.clear();
+        favIds.clear();
+        favDetailById.clear();
+        if (favAdapter != null) favAdapter.setItems(favItems);
+
+        recentItems.clear();
+        if (recentAdapter != null) recentAdapter.notifyDataSetChanged();
+
+        updateDrawerEmpty();
+    }
 
     private void showReserveCard(String busNo, String dir, String from, String to, Runnable onReserve) {
         // 중앙 카드(다이얼로그) 띄우기
