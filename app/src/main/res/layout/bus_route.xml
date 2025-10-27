@@ -64,7 +64,6 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- 방면 선택 영역 -->
     <LinearLayout
         android:id="@+id/direction_layout"
         android:layout_width="0dp"
@@ -76,63 +75,39 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- 왼쪽 방면 -->
-        <LinearLayout
-            android:id="@+id/layout_left"
+        <TextView
+            android:id="@+id/direction_left"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="50dp"
             android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center">
+            android:gravity="center"
+            android:text="(왼쪽 방면)"
+            android:textColor="#4B93FF"
+        android:textStyle="bold"
+        android:background="@color/white"/>
 
-            <TextView
-                android:id="@+id/direction_left"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:gravity="center"
-                android:text="(왼쪽 방면)"
-                android:textColor="#000000"
-                android:textStyle="bold"
-                android:background="@color/white"/>
-
-            <!-- 밑줄 -->
-            <View
-                android:id="@+id/underline_left"
-                android:layout_width="match_parent"
-                android:layout_height="3dp"
-                android:background="#4B93FF"
-                android:visibility="visible"/> <!-- 초기 선택은 왼쪽 -->
-        </LinearLayout>
-
-        <!-- 오른쪽 방면 -->
-        <LinearLayout
-            android:id="@+id/layout_right"
+        <TextView
+            android:id="@+id/direction_right"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="50dp"
             android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center">
-
-            <TextView
-                android:id="@+id/direction_right"
-                android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:gravity="center"
-                android:text="(오른쪽 방면)"
-                android:textColor="#000000"
-                android:textStyle="bold"
-                android:background="@color/white"/>
-
-            <!-- 밑줄 -->
-            <View
-                android:id="@+id/underline_right"
-                android:layout_width="match_parent"
-                android:layout_height="3dp"
-                android:background="#4B93FF"
-                android:visibility="invisible"/>
-        </LinearLayout>
-
+            android:gravity="center"
+            android:text="(오른쪽 방면)"
+            android:textColor="#000000"
+            android:textStyle="bold"
+            android:background="@color/white"/>
     </LinearLayout>
+
+    <View
+        android:id="@+id/underline"
+        android:layout_width="0dp"
+        android:layout_height="3dp"
+        android:background="#4B93FF"
+        app:layout_constraintTop_toBottomOf="@id/direction_layout"
+        app:layout_constraintStart_toStartOf="parent"
+        />
+
+
 
 
     <!-- 버스 노선도 (API 데이터로 채울 RecyclerView) -->
