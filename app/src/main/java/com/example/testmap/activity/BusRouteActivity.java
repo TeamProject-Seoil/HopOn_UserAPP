@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -66,7 +67,8 @@ public class BusRouteActivity extends AppCompatActivity {
     private String dirLeft = null, dirRight = null;
     private String currentDir = null;
     private TextView tvLeft, tvRight;
-    private View underlineLeft, underlineRight;
+    private View underline;
+    private LinearLayout directionLayout;
 
     private String currentBusRouteId;
     private final Map<String, Boolean> visibleSeq = new HashMap<>();
@@ -114,29 +116,35 @@ public class BusRouteActivity extends AppCompatActivity {
         for (BusRouteDto s : visible) visibleSeq.put(s.seq, true);
     }
 
-    private void selectLeft() {
-        if (tvLeft == null || tvRight == null) return;
 
-        tvLeft.setTextColor(ContextCompat.getColor(this, R.color.mainblue));
-        tvLeft.setTypeface(null, android.graphics.Typeface.BOLD);
-        underlineLeft.setVisibility(View.VISIBLE);
+    private void animateTab(int index) {
+        int tabWidth = directionLayout.getWidth() / 2;
+        float targetX = tabWidth * index;
 
-        tvRight.setTextColor(ContextCompat.getColor(this, R.color.grayText));
-        tvRight.setTypeface(null, android.graphics.Typeface.NORMAL);
-        underlineRight.setVisibility(View.INVISIBLE);
+        underline.animate()
+                .translationX(targetX)
+                .setDuration(250)
+                .start();
     }
 
-    private void selectRight() {
-        if (tvLeft == null || tvRight == null) return;
+    private void updateTabStyle(int index) {
+        tvLeft.setTextColor(index == 0 ?
+                ContextCompat.getColor(this, R.color.mainblue) :
+                ContextCompat.getColor(this, R.color.grayText));
 
-        tvRight.setTextColor(ContextCompat.getColor(this, R.color.mainblue));
-        tvRight.setTypeface(null, android.graphics.Typeface.BOLD);
-        underlineRight.setVisibility(View.VISIBLE);
+        tvRight.setTextColor(index == 1 ?
+                ContextCompat.getColor(this, R.color.mainblue) :
+                ContextCompat.getColor(this, R.color.grayText));
 
-        tvLeft.setTextColor(ContextCompat.getColor(this, R.color.grayText));
-        tvLeft.setTypeface(null, android.graphics.Typeface.NORMAL);
-        underlineLeft.setVisibility(View.INVISIBLE);
+        tvLeft.setTypeface(null, index == 0 ?
+                android.graphics.Typeface.BOLD :
+                android.graphics.Typeface.NORMAL);
+
+        tvRight.setTypeface(null, index == 1 ?
+                android.graphics.Typeface.BOLD :
+                android.graphics.Typeface.NORMAL);
     }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -168,11 +176,25 @@ public class BusRouteActivity extends AppCompatActivity {
 
         tvLeft  = findViewById(R.id.direction_left);
         tvRight = findViewById(R.id.direction_right);
-        underlineLeft = findViewById(R.id.underline_left);
-        underlineRight = findViewById(R.id.underline_right);
-        selectLeft();
-        tvLeft.setOnClickListener(v -> switchDirection(dirLeft));
-        tvRight.setOnClickListener(v -> switchDirection(dirRight));
+        underline = findViewById(R.id.underline);
+        directionLayout = findViewById(R.id.direction_layout);
+
+        directionLayout.post(() -> {
+            int tabWidth = directionLayout.getWidth() / 2;
+            underline.getLayoutParams().width = tabWidth;
+            underline.requestLayout();
+        });
+
+        tvLeft.setOnClickListener(v -> {
+            animateTab(0);
+            updateTabStyle(0);
+            switchDirection(dirLeft);
+        });
+        tvRight.setOnClickListener(v -> {
+            animateTab(1);
+            updateTabStyle(1);
+            switchDirection(dirRight);
+        });
 
 
         focusStationId = getIntent().getStringExtra(EXTRA_FOCUS_STATION_ID);
@@ -422,7 +444,13 @@ public class BusRouteActivity extends AppCompatActivity {
         if (dir == null) return;
         currentDir = dir;
 
-        if (dir.equals(dirLeft)) selectLeft(); else selectRight();
+        if (dir.equals(dirLeft)) {
+            updateTabStyle(0);
+            animateTab(0);
+        } else {
+            updateTabStyle(1);
+            animateTab(1);
+        }
 
         List<BusRouteDto> filtered = new ArrayList<>();
         for (BusRouteDto s : allStops) if (dir.equals(s.direction)) filtered.add(s);
