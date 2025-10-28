@@ -5,6 +5,7 @@ import com.example.testmap.dto.BusLocationDto;
 import com.example.testmap.dto.BusRouteDto;
 import com.example.testmap.dto.ReservationCreateRequest;
 import com.example.testmap.dto.ReservationResponse;
+import com.example.testmap.dto.RoutePoint;
 import com.example.testmap.dto.StationDto;
 import com.example.testmap.model.CancelResult;
 
@@ -48,6 +49,20 @@ public interface ApiService {
     Call<List<StationDto>> getNearbyStations(@Query("lon") double lon,
                                              @Query("lat") double lat,
                                              @Query("radius") int radius);
+
+    @GET("/api/busRoutePath")
+    Call<List<RoutePoint>> getFullPath(
+            @Header("Authorization") String bearer,
+            @Query("busRouteId") String routeId
+    );
+
+    @GET("/api/busRoutePath/segment")
+    Call<List<RoutePoint>> getSegment(
+            @Header("Authorization") String bearer,
+            @Query("busRouteId") String routeId,
+            @Query("boardArsId") String boardArsId,
+            @Query("destArsId") String destArsId
+    );
 
     // =========================================================
     // ======================= 인증 ============================

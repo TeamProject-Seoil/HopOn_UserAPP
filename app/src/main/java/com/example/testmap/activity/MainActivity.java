@@ -40,6 +40,7 @@ import com.example.testmap.R;
 import com.example.testmap.adapter.FavoriteAdapter;
 import com.example.testmap.adapter.RecentAdapter;
 import com.example.testmap.dto.ReservationResponse;
+import com.example.testmap.dto.RoutePoint;
 import com.example.testmap.dto.StationDto;
 import com.example.testmap.dto.ReservationCreateRequest;
 import com.example.testmap.model.CancelResult;
@@ -58,6 +59,7 @@ import com.naver.maps.map.LocationTrackingMode;
 import com.naver.maps.map.MapView;
 import com.naver.maps.map.NaverMap;
 import com.naver.maps.map.OnMapReadyCallback;
+import com.naver.maps.map.overlay.LocationOverlay;
 import com.naver.maps.map.overlay.Marker;
 import com.naver.maps.map.overlay.OverlayImage;
 import com.naver.maps.map.util.FusedLocationSource;
@@ -95,6 +97,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     // 위치 권한
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1000;
     private FusedLocationSource locationSource;
+
+    //버스 경로 그리기
+    private com.naver.maps.map.overlay.PathOverlay fullPathOverlay;
+    private com.naver.maps.map.overlay.PathOverlay segmentPathOverlay;
+
 
 
     // 바텀시트 즐겨찾기 상태 동기화용
@@ -589,6 +596,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 currentReservationId = null;
             }
         });
+
+        clearPathOverlays();
     }
 
     // ===== 예약(활성 여부 UI만 바텀시트) =====
@@ -679,6 +688,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             btnCancel.setOnClickListener(v -> onClickCancel());
         }
         wireFavoriteInBottomSheet(r);
+        fetchAndDrawPolylinesForReservation(r);
         boundReservation = r;
     }
 
@@ -902,6 +912,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                     updateReservationSheetVisibility(true, false);
                                     currentReservationId = null;
                                     fetchAndShowActiveReservation();
+                                    clearPathOverlays();
                                 }
                                 case "ALREADY_CANCELLED" -> {
                                     Toast.makeText(MainActivity.this, "이미 취소된 예약이에요.", Toast.LENGTH_SHORT).show();
@@ -1594,4 +1605,69 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (right.isEmpty()) return left;
         return left + mid + right;
     }
+
+
+    // 버스 경로 그리기
+    private void fetchAndDrawPolylinesForReservation(ReservationResponse r) {
+        if (naverMap == null || r == null) return;
+
+        String access = TokenStore.getAccess(getApplicationContext());
+        if (TextUtils.isEmpty(access)) return;
+        String bearer = "Bearer " + access;
+
+        // 2) 구간 경로 (출발~도착)
+        ApiClient.get().getSegment(bearer, r.routeId, r.boardArsId, r.destArsId)
+                .enqueue(new Callback<List<RoutePoint>>() {
+                    @Override public void onResponse(Call<List<RoutePoint>> call, Response<List<RoutePoint>> res) {
+                        if (res.isSuccessful() && res.body()!=null) {
+                            drawSegmentPath(res.body());
+
+                            // 예약 직후 화면: 자동 카메라 피팅 대신 "내 위치"로 이동
+                            //moveCameraToMyLocation(/*fallbackToSegment=*/true, res.body());
+                        }
+                    }
+                    @Override public void onFailure(Call<List<RoutePoint>> call, Throwable t) { /* ignore */ }
+                });
+    }
+
+    private void drawSegmentPath(List<RoutePoint> points) {
+        if (naverMap == null || points == null || points.isEmpty()) return;
+
+        List<LatLng> latLngs = new ArrayList<>(points.size());
+        for (RoutePoint p : points) latLngs.add(new LatLng(p.lat, p.lng));
+
+        if (segmentPathOverlay == null) segmentPathOverlay = new com.naver.maps.map.overlay.PathOverlay();
+        segmentPathOverlay.setCoords(latLngs);
+        segmentPathOverlay.setWidth(50);         // 좀 더 두껍게
+        segmentPathOverlay.setOutlineWidth(3);   // 외곽선으로 강조
+        segmentPathOverlay.setOutlineColor(0xFFFFFFFF);
+        segmentPathOverlay.setColor(Color.BLUE); // 진한 파란
+        segmentPathOverlay.setMap(naverMap);
+        segmentPathOverlay.setPatternImage(OverlayImage.fromResource(R.drawable.path_pattern));
+        segmentPathOverlay.setPatternInterval(100);
+    }
+
+    //카메라 피팅
+    private boolean cameraFittedOnce = false;
+
+    private void fitCameraIfNeeded(List<RoutePoint> points) {
+        if (cameraFittedOnce || naverMap == null || points == null || points.isEmpty()) return;
+
+        com.naver.maps.geometry.LatLngBounds.Builder b = new com.naver.maps.geometry.LatLngBounds.Builder();
+        for (RoutePoint p : points) b.include(new LatLng(p.lat, p.lng));
+        com.naver.maps.geometry.LatLngBounds box = b.build();
+
+        naverMap.moveCamera(com.naver.maps.map.CameraUpdate.fitBounds(box, 60)); // padding 60px
+        cameraFittedOnce = true;
+    }
+
+    //로그아웃 예약 해지시 버스 경로 정리
+    private void clearPathOverlays() {
+        if (fullPathOverlay != null) { fullPathOverlay.setMap(null); fullPathOverlay = null; }
+        if (segmentPathOverlay != null) { segmentPathOverlay.setMap(null); segmentPathOverlay = null; }
+        cameraFittedOnce = false;
+    }
+
+
+
 }
