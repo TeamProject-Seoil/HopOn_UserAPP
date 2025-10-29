@@ -72,9 +72,14 @@ public class FavoriteAdapter extends RecyclerView.Adapter<FavoriteAdapter.ViewHo
     }
 
     @Override
-    public void onBindViewHolder(@NonNull ViewHolder h, int positionIgnored) {
-        FavoriteItem item = favoriteList.get(h.getBindingAdapterPosition());
+    public void onBindViewHolder(@NonNull ViewHolder h, int position) {
+        // ★ 재활용 상태 초기화 (이게 핵심)
+        h.itemView.animate().cancel();
+        h.itemView.setAlpha(1f);
+        h.itemView.setScaleX(1f);
+        h.itemView.setScaleY(1f);
 
+        FavoriteItem item = favoriteList.get(position); // position 그대로 사용
         h.busNumberBox.setText(item.getBusNumber());
         h.busName.setText(item.getBusName());
         h.busInfo.setText(item.getBusInfo());
@@ -96,6 +101,15 @@ public class FavoriteAdapter extends RecyclerView.Adapter<FavoriteAdapter.ViewHo
 
     @Override public int getItemCount() { return favoriteList.size(); }
 
+    @Override
+    public void onViewRecycled(@NonNull ViewHolder h) {
+        // ★ 혹시 모를 잔여 애니/상태 제거
+        h.itemView.animate().cancel();
+        h.itemView.setAlpha(1f);
+        h.itemView.setScaleX(1f);
+        h.itemView.setScaleY(1f);
+        super.onViewRecycled(h);
+    }
     static class ViewHolder extends RecyclerView.ViewHolder {
         TextView busNumberBox, busName, busInfo;
         ImageView favIcon;

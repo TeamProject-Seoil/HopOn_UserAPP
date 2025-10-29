@@ -1048,10 +1048,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             return;
                         }
 
+                        // 서버 삭제(성공/실패와 무관하게 끝나면 재조회)
                         ApiClient.get().deleteFavorite("Bearer " + access, id)
                                 .enqueue(new retrofit2.Callback<Void>() {
                                     @Override public void onResponse(Call<Void> call, Response<Void> res) {
-                                        // 서버 결과와 무관하게 최신 상태 재조회
                                         fetchFavoritesIntoDrawer();
                                     }
                                     @Override public void onFailure (Call<Void> call, Throwable t) {
@@ -1059,29 +1059,17 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                     }
                                 });
 
-                        // 낙관적 UI 제거 애니메이션
-                        RecyclerView.ViewHolder vh = favRecycler.findViewHolderForAdapterPosition(position);
-                        if (vh != null) {
-                            View card = vh.itemView;
-                            card.animate()
-                                    .alpha(0f)
-                                    .scaleY(0.92f)
-                                    .setDuration(180)
-                                    .withEndAction(() -> {
-                                        if (position < favItems.size()) favItems.remove(position);
-                                        if (position < favIds.size())   favIds.remove(position);
-                                        if (favAdapter != null) favAdapter.setItems(favItems);
-                                        card.setAlpha(1f);
-                                        card.setScaleY(1f);
-                                        updateDrawerEmpty();
-                                    })
-                                    .start();
-                        } else {
-                            if (position < favItems.size()) favItems.remove(position);
-                            if (position < favIds.size())   favIds.remove(position);
-                            if (favAdapter != null) favAdapter.setItems(favItems);
-                            updateDrawerEmpty();
+                        // ✅ 낙관적 UI 업데이트: 수동 애니메이션 X, 정확 포지션 제거
+                        //    (어댑터 내부 리스트와 외부 리스트 둘 다 제거해서 동기 유지)
+                        if (position < favItems.size()) favItems.remove(position);
+                        if (position < favIds.size())   favIds.remove(position);
+
+                        if (favAdapter != null) {
+                            favAdapter.removeAt(position); // notifyItemRemoved(position)
+                            // 뒤 인덱스가 포지션 의존이면 범위 갱신
+                            // favAdapter.notifyItemRangeChanged(position, favAdapter.getItemCount() - position);
                         }
+                        updateDrawerEmpty();
                     }
                 });
             }
