@@ -1069,6 +1069,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             // 뒤 인덱스가 포지션 의존이면 범위 갱신
                             // favAdapter.notifyItemRangeChanged(position, favAdapter.getItemCount() - position);
                         }
+
                         updateDrawerEmpty();
                     }
                 });
