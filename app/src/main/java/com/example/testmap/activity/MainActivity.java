@@ -62,7 +62,6 @@ import com.naver.maps.map.LocationTrackingMode;
 import com.naver.maps.map.MapView;
 import com.naver.maps.map.NaverMap;
 import com.naver.maps.map.OnMapReadyCallback;
-import com.naver.maps.map.overlay.LocationOverlay;
 import com.naver.maps.map.overlay.Marker;
 import com.naver.maps.map.overlay.OverlayImage;
 import com.naver.maps.map.util.FusedLocationSource;
@@ -274,6 +273,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         ensureLocationTracking();
         fetchAndShowActiveReservation();     // ★ 재진입 시 활성 예약 반영
         refreshNoticeUnreadBadges();         // ★ 재진입 시 뱃지 갱신
+
+        // ★ 활성 예약이 이미 바인딩되어 있으면 추적 재개(앱 복귀 등)
+        if (hasActiveReservation && boundReservation != null) {
+            startDriverTrackingForReservation(boundReservation);
+        }
     }
     @Override protected void onPause()  { super.onPause();  mapView.onPause(); }
     @Override protected void onStop()   { super.onStop();   mapView.onStop(); }
@@ -308,6 +312,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         ensureLocationTracking();
         hookLocationCallback();
+
+        // ★ 지도 준비가 끝났고, 이미 활성 예약이 있다면 즉시 추적 시작
+        if (hasActiveReservation && boundReservation != null) {
+            startDriverTrackingForReservation(boundReservation);
+        }
     }
 
     // ===== 위치 관련 =====
@@ -693,7 +702,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
     }
 
-
     // ===== 예약(활성 여부 UI만 바텀시트) =====
     private void fetchAndShowActiveReservation() {
         String access = TokenStore.getAccess(getApplicationContext());
@@ -717,15 +725,19 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                 if (resp.code() == 204) {
                     hasActiveReservation = false;
+                    boundReservation = null; // ★ 바인딩 해제
                     updateReservationSheetVisibility(true, false);
                     enforceMainUiState();
+                    stopDriverTracking();    // ★ 위치 추적도 중단
                     return;
                 }
                 if (resp.code() == 401) {
                     TokenStore.clearAccess(getApplicationContext());
                     hasActiveReservation = false;
+                    boundReservation = null; // ★ 바인딩 해제
                     updateReservationSheetVisibility(false, false);
                     enforceMainUiState();
+                    stopDriverTracking();    // ★ 위치 추적도 중단
                     return;
                 }
                 if (resp.isSuccessful() && resp.body() != null) {
@@ -739,17 +751,24 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     dismissArrivalsSheetIfShown();
                     enforceMainUiState();
                     updateReservationSheetVisibility(true, true);
+
+                    // ★ 활성 예약 바인딩 직후, 추적 시작(이중 안전)
+                    startDriverTrackingForReservation(r);
                 } else {
                     updateReservationSheetVisibility(true, false);
                     hasActiveReservation = false;
+                    boundReservation = null; // ★ 바인딩 해제
                     enforceMainUiState();
+                    stopDriverTracking();    // ★ 위치 추적도 중단
                 }
             }
             @Override public void onFailure(Call<ReservationResponse> call, Throwable t) {
                 boolean loggedIn = !TextUtils.isEmpty(TokenStore.getAccess(getApplicationContext()));
                 hasActiveReservation = false;
+                boundReservation = null; // ★ 바인딩 해제
                 updateReservationSheetVisibility(loggedIn, false);
                 enforceMainUiState();
+                stopDriverTracking();    // ★ 위치 추적도 중단
             }
         });
     }
@@ -785,6 +804,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         wireFavoriteInBottomSheet(r);
         fetchAndDrawPolylinesForReservation(r);  // ★ 구간 라인 그림
         boundReservation = r;
+
+        // ★ 바인딩 시 즉시 추적 시작(이중 안전)
+        startDriverTrackingForReservation(r);
     }
 
     // ===== 즐겨찾기: 고정 바텀시트 토글 =====
@@ -885,6 +907,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
 
         boundReservation = r;
+        // ★ 여기도 추적 시작을 한 번 더 보장(중복 호출해도 stop/start로 안전)
         startDriverTrackingForReservation(r);
     }
 
@@ -1561,7 +1584,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         updateDrawerEmpty();
         clearPathOverlays();
-        stopDriverTracking();
+        stopDriverTracking(); // ★ 추적 중단
     }
 
     private void showReserveCard(String busNo, String dir, String from, String to, Runnable onReserve) {
@@ -1739,6 +1762,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (fullPathOverlay != null) { fullPathOverlay.setMap(null); fullPathOverlay = null; }
         if (segmentPathOverlay != null) { segmentPathOverlay.setMap(null); segmentPathOverlay = null; }
         cameraFittedOnce = false;
-        stopDriverTracking();
+        stopDriverTracking(); // ★ 추적 중단
     }
 }
