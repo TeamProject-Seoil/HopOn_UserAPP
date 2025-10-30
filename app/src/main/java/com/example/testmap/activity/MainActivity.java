@@ -7,6 +7,8 @@ import android.content.pm.PackageManager;
 import android.graphics.BitmapFactory;
 import android.location.LocationManager;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.widget.Button;
@@ -39,6 +41,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.testmap.R;
 import com.example.testmap.adapter.FavoriteAdapter;
 import com.example.testmap.adapter.RecentAdapter;
+import com.example.testmap.dto.DriverLocationDto;
 import com.example.testmap.dto.ReservationResponse;
 import com.example.testmap.dto.RoutePoint;
 import com.example.testmap.dto.StationDto;
@@ -74,7 +77,6 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-
 /**
  * MainActivity
  * - 지도/주변정류장
@@ -91,6 +93,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private View layoutMenu, layoutFavorites;
     private NaverMap naverMap;
 
+    @Nullable private Marker driverMarker = null;
+    private final Handler driverHandler = new Handler(Looper.getMainLooper());
+    private static final long DRIVER_POLL_INTERVAL_MS = 5_000L; // 5초 간격
+    private boolean driverCenteredOnce = false;
+
     private TextView badgeMenuNotice;      // 지도 화면 상단 메뉴 버튼 옆
     private TextView badgeRowNotice;
 
@@ -98,11 +105,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1000;
     private FusedLocationSource locationSource;
 
-    //버스 경로 그리기
+    // 버스 경로 오버레이
     private com.naver.maps.map.overlay.PathOverlay fullPathOverlay;
     private com.naver.maps.map.overlay.PathOverlay segmentPathOverlay;
-
-
 
     // 바텀시트 즐겨찾기 상태 동기화용
     @Nullable private ReservationResponse boundReservation = null;
@@ -152,17 +157,19 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private final List<RecentItem> recentItems = new ArrayList<>();
     private TextView emptyFavText, emptyRecentText;
 
+    // 카메라 피팅 1회 제어
+    private boolean cameraFittedOnce = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
+        // 상단 메뉴 뱃지 (액션바 영역)
         badgeMenuNotice = findViewById(R.id.menu_notice_badge);
-        // initDrawerSections() 내, layoutMenu != null 블록 안 적당한 위치
-        badgeRowNotice = (layoutMenu != null) ? layoutMenu.findViewById(R.id.row_notice_badge) : null;
 
-        // (활성 예약) 바텀시트: 서버에 “현재 진행중 예약”이 있을 때만 표시
+        // (활성 예약) 바텀시트 초기화
         bottomSheet = findViewById(R.id.bottom_sheet_layout);
         bottomBehavior = BottomSheetBehavior.from(bottomSheet);
         bottomBehavior.setHideable(true);
@@ -193,7 +200,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         // Drawer 버튼
         if (menuButton != null) {
             menuButton.setOnClickListener(view -> {
-                refreshNoticeUnreadBadges(); // ← 추가
+                refreshNoticeUnreadBadges(); // ★ 메뉴 열 때 최신 뱃지값 반영
                 if (layoutFavorites != null) layoutFavorites.setVisibility(View.GONE);
                 if (layoutMenu != null)      layoutMenu.setVisibility(View.VISIBLE);
                 if (drawerLayout != null)    drawerLayout.openDrawer(GravityCompat.START);
@@ -201,7 +208,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
         if (favoriteButton != null) {
             favoriteButton.setOnClickListener(view -> {
-                refreshNoticeUnreadBadges(); // ← 추가(옵션)
+                refreshNoticeUnreadBadges();
                 String access = TokenStore.getAccess(MainActivity.this);
                 if (TextUtils.isEmpty(access)) {
                     // 로그인 필요 다이얼로그
@@ -265,12 +272,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         mapView.onResume();
         renderHeaderByAuth();
         ensureLocationTracking();
-        fetchAndShowActiveReservation();
-        refreshNoticeUnreadBadges();
+        fetchAndShowActiveReservation();     // ★ 재진입 시 활성 예약 반영
+        refreshNoticeUnreadBadges();         // ★ 재진입 시 뱃지 갱신
     }
     @Override protected void onPause()  { super.onPause();  mapView.onPause(); }
     @Override protected void onStop()   { super.onStop();   mapView.onStop(); }
-    @Override protected void onDestroy(){ super.onDestroy();mapView.onDestroy(); }
+    @Override protected void onDestroy(){ super.onDestroy();mapView.onDestroy(); stopDriverTracking();}
     @Override protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
         mapView.onSaveInstanceState(outState);
@@ -531,7 +538,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     .create();
 
             // 배경(옵션): bg_white_card가 있으면 적용, 없으면 투명
-            int bgId = getResources().getIdentifier("bg_white_card", "drawable", getPackageName());
             if (dialog.getWindow() != null) {
                 dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
             }
@@ -572,13 +578,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             updateReservationSheetVisibility(false, false);
             hasActiveReservation = false;
             currentReservationId = null;
+            clearPathOverlays();
             return;
         }
 
         ApiService.LogoutRequest body = new ApiService.LogoutRequest(CLIENT_TYPE, deviceId, refresh);
-        ApiClient.get().logout(body).enqueue(new retrofit2.Callback<Map<String, Object>>() {
-            @Override public void onResponse(retrofit2.Call<Map<String, Object>> call,
-                                             retrofit2.Response<Map<String, Object>> res) {
+        ApiClient.get().logout(body).enqueue(new retrofit2.Callback<Map<String,Object>>() {
+            @Override public void onResponse(retrofit2.Call<Map<String,Object>> call,
+                                             retrofit2.Response<Map<String,Object>> res) {
                 TokenStore.clearAccess(MainActivity.this);
                 TokenStore.clearRefresh(MainActivity.this);
                 showLoggedOutUi();
@@ -586,19 +593,106 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 updateReservationSheetVisibility(false, false);
                 hasActiveReservation = false;
                 currentReservationId = null;
+                clearPathOverlays();
             }
-            @Override public void onFailure(retrofit2.Call<Map<String, Object>> call, Throwable t) {
+            @Override public void onFailure(retrofit2.Call<Map<String,Object>> call, Throwable t) {
                 TokenStore.clearAccess(MainActivity.this);
                 TokenStore.clearRefresh(MainActivity.this);
                 showLoggedOutUi();
                 updateReservationSheetVisibility(false, false);
                 hasActiveReservation = false;
                 currentReservationId = null;
+                clearPathOverlays();
             }
         });
-
-        clearPathOverlays();
     }
+
+    /** 활성 예약이 바인딩되면 기사 위치 폴링 시작 */
+    private void startDriverTrackingForReservation(@NonNull ReservationResponse r) {
+        stopDriverTracking();          // 중복 방지
+        driverCenteredOnce = false;    // 새 예약마다 1회 카메라 센터링 리셋
+        scheduleNextDriverPoll(0L);    // 즉시 1회 요청
+    }
+
+    /** 폴링 타이머 중지 & 마커 제거 */
+    private void stopDriverTracking() {
+        driverHandler.removeCallbacksAndMessages(null);
+        if (driverMarker != null) {
+            driverMarker.setMap(null);
+            driverMarker = null;
+        }
+    }
+
+    /** 다음 폴링 예약 */
+    private void scheduleNextDriverPoll(long delayMs) {
+        driverHandler.postDelayed(this::fetchAndRenderDriverLocationSafe, delayMs);
+    }
+
+    /** 예외 안전 래퍼 */
+    private void fetchAndRenderDriverLocationSafe() {
+        try {
+            fetchAndRenderDriverLocation();
+        } finally {
+            // 계속 폴링 (활성예약 유지 시)
+            if (hasActiveReservation && currentReservationId != null) {
+                scheduleNextDriverPoll(DRIVER_POLL_INTERVAL_MS);
+            }
+        }
+    }
+
+    /** 서버에서 기사 위치를 가져와 지도에 렌더 */
+    private void fetchAndRenderDriverLocation() {
+        if (!hasActiveReservation || currentReservationId == null || naverMap == null) return;
+
+        String access = TokenStore.getAccess(getApplicationContext());
+        if (TextUtils.isEmpty(access)) return;
+        String bearer = "Bearer " + access;
+
+        ApiClient.get().getDriverLocation(bearer, currentReservationId)
+                .enqueue(new retrofit2.Callback<DriverLocationDto>() {
+                    @Override public void onResponse(Call<DriverLocationDto> call,
+                                                     Response<DriverLocationDto> res) {
+                        if (res.code() == 204) {
+                            // 운행/위치 없음 → 마커 숨김
+                            if (driverMarker != null) driverMarker.setMap(null);
+                            driverMarker = null;
+                            return;
+                        }
+                        if (!res.isSuccessful() || res.body() == null) {
+                            return;
+                        }
+                        DriverLocationDto d = res.body();
+                        if (d.lat == null || d.lng == null) return;
+
+                        LatLng pos = new LatLng(d.lat, d.lng);
+                        updateDriverMarker(pos, d);
+                    }
+                    @Override public void onFailure(Call<DriverLocationDto> call, Throwable t) { /* ignore */ }
+                });
+    }
+
+    /** 지도 위 기사 마커 업데이트 + 최초 1회 카메라 맞추기 */
+    private void updateDriverMarker(LatLng pos, @Nullable DriverLocationDto d) {
+        if (driverMarker == null) {
+            driverMarker = new Marker();
+            // 아이콘은 프로젝트 리소스에 맞게 교체(없으면 기본 핀)
+            // 예: R.drawable.ic_bus_driver
+            try { driverMarker.setIcon(OverlayImage.fromResource(R.drawable.ic_bus_driver)); } catch (Throwable ignore) {}
+            driverMarker.setMap(naverMap);
+        }
+        driverMarker.setPosition(pos);
+
+        // 캡션(선택)
+        String plate = (d != null && !TextUtils.isEmpty(d.plainNo)) ? d.plainNo : "";
+        driverMarker.setCaptionText(TextUtils.isEmpty(plate) ? "운행 차량" : plate);
+
+        // 최초 1회 카메라 부드럽게 센터링 (구간 라인 피팅과 충돌 방지)
+        if (!driverCenteredOnce) {
+            naverMap.moveCamera(com.naver.maps.map.CameraUpdate.scrollTo(pos));
+            driverCenteredOnce = true;
+        }
+    }
+
 
     // ===== 예약(활성 여부 UI만 바텀시트) =====
     private void fetchAndShowActiveReservation() {
@@ -666,6 +760,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (!isLoggedIn || !hasActiveReservation) {
             bottomBehavior.setState(BottomSheetBehavior.STATE_HIDDEN);
             bottomSheet.setVisibility(View.GONE);
+            stopDriverTracking();
             return;
         }
         if (bottomSheet.getVisibility() != View.VISIBLE) bottomSheet.setVisibility(View.VISIBLE);
@@ -688,7 +783,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             btnCancel.setOnClickListener(v -> onClickCancel());
         }
         wireFavoriteInBottomSheet(r);
-        fetchAndDrawPolylinesForReservation(r);
+        fetchAndDrawPolylinesForReservation(r);  // ★ 구간 라인 그림
         boundReservation = r;
     }
 
@@ -788,8 +883,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
             }
         });
-    }
 
+        boundReservation = r;
+        startDriverTrackingForReservation(r);
+    }
 
     private void doDeleteFavorite(String bearer, long id, ImageView star, boolean[] isFav, Long[] favIdHolder) {
         ApiClient.get().deleteFavorite(bearer, id)
@@ -886,7 +983,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         tvDir    = bottomSheet.findViewById(R.id.tvBusDirection);
         tvFrom   = bottomSheet.findViewById(R.id.riging_station);
         tvTo     = bottomSheet.findViewById(R.id.out_station);
-        btnCancel= bottomSheet.findViewById(R.id.btnReserve); // 시트 UI 구성에 맞게 사용
+        btnCancel= bottomSheet.findViewById(R.id.btnReserve); // 시트 UI 구성에 맞게 사용 (예: "예약 취소")
     }
 
     private void onClickCancel() {
@@ -977,8 +1074,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if (drawerLayout != null) drawerLayout.closeDrawer(GravityCompat.START);
             });
 
-
-            // ✅ 여기로 이동: 상단바 '전체 삭제' 버튼 연결
+            // 상단 '전체 삭제' 버튼
             View clearAll = layoutFavorites.findViewById(R.id.clearAll);
             if (clearAll != null) {
                 clearAll.setOnClickListener(v -> {
@@ -999,7 +1095,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             .setView(content)
                             .create();
 
-                    // 배경 흰색+라운드 적용
+                    // 배경 흰색+라운드 적용(없으면 투명)
                     if (dialog.getWindow() != null) {
                         dialog.getWindow().setBackgroundDrawable(
                                 ContextCompat.getDrawable(MainActivity.this, R.drawable.bg_white_card)
@@ -1018,7 +1114,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     dialog.show();
                 });
             }
-
 
             favRecycler     = layoutFavorites.findViewById(R.id.fav_recycler);
             recentRecycler  = layoutFavorites.findViewById(R.id.recent_recycler);
@@ -1059,15 +1154,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                     }
                                 });
 
-                        // ✅ 낙관적 UI 업데이트: 수동 애니메이션 X, 정확 포지션 제거
-                        //    (어댑터 내부 리스트와 외부 리스트 둘 다 제거해서 동기 유지)
+                        // 낙관적 UI 업데이트
                         if (position < favItems.size()) favItems.remove(position);
                         if (position < favIds.size())   favIds.remove(position);
 
                         if (favAdapter != null) {
-                            favAdapter.removeAt(position); // notifyItemRemoved(position)
-                            // 뒤 인덱스가 포지션 의존이면 범위 갱신
-                            // favAdapter.notifyItemRangeChanged(position, favAdapter.getItemCount() - position);
+                            favAdapter.removeAt(position);
                         }
 
                         updateDrawerEmpty();
@@ -1104,7 +1196,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         imageProfile = findViewById(R.id.image_profile);
         textUserName = findViewById(R.id.text_user_name);
         btnLogout    = findViewById(R.id.btn_logout);
-        // ★ 확인 다이얼로그로 교체
         if (btnLogout != null) btnLogout.setOnClickListener(v -> confirmLogout());
 
         View menuSection = findViewById(R.id.menu_section);
@@ -1374,7 +1465,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         String from  = TextUtils.isEmpty(f.boardStopName) ? "" : f.boardStopName;
         String to    = TextUtils.isEmpty(f.destStopName)  ? "" : f.destStopName;
 
-        // ★ 서버 연동 가능한 전체 파라미터로 다이얼로그 생성
+        // 서버 연동 가능한 전체 파라미터로 다이얼로그 생성
         ReserveCardDialogFragment dialog = ReserveCardDialogFragment.newInstanceFull(
                 /* 표시용 */ busNo, dir, from, to,
                 /* 서버용 */ f.routeId, f.direction,
@@ -1391,7 +1482,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
             @Override public void onCancelClicked() { /* no-op */ }
 
-            // ★ 다이얼로그에서 별 토글 시 → 서버 기준으로 즉시 재조회
+            // 다이얼로그에서 별 토글 시 → 서버 기준으로 즉시 재조회
             @Override public void onFavoriteChanged(boolean isFav, Long favId) {
                 fetchFavoritesIntoDrawer();
             }
@@ -1399,14 +1490,13 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         dialog.show(getSupportFragmentManager(), "reserve_card");
     }
 
-
     private void onClickRecentItem(RecentItem item) {
         String busNo = !TextUtils.isEmpty(item.getRouteName()) ? item.getRouteName() : item.getRouteId();
         String dir   = item.getDirection()   == null ? "" : item.getDirection();
         String from  = item.getBoardStopName()== null ? "" : item.getBoardStopName();
         String to    = item.getDestStopName() == null ? "" : item.getDestStopName();
 
-        // ★ 현재 보유한 즐겨찾기에서 동일 조합 찾기 (routeId+direction+boardStopId+destStopId)
+        // 현재 보유한 즐겨찾기에서 동일 조합 찾기
         Long matchedFavId = null;
         for (Map.Entry<Long, ApiService.FavoriteResponse> e : favDetailById.entrySet()) {
             ApiService.FavoriteResponse f = e.getValue();
@@ -1418,7 +1508,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 break;
             }
         }
-        final Long matchedFavIdFinal = matchedFavId; // ← 콜백에서 사용할 final 변수
+        final Long matchedFavIdFinal = matchedFavId;
         boolean isFavorite = matchedFavIdFinal != null;
 
         ReserveCardDialogFragment dialog = ReserveCardDialogFragment.newInstanceFull(
@@ -1437,14 +1527,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
             @Override public void onCancelClicked() { /* no-op */ }
 
-            // ★ 토글 결과는 서버 기준으로 즉시 동기화
             @Override public void onFavoriteChanged(boolean nowFav, Long favId) {
                 fetchFavoritesIntoDrawer();
             }
         });
         dialog.show(getSupportFragmentManager(), "reserve_card");
     }
-
 
     private static String empty(String s){ return s==null? "": s; }
 
@@ -1472,6 +1560,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (recentAdapter != null) recentAdapter.notifyDataSetChanged();
 
         updateDrawerEmpty();
+        clearPathOverlays();
+        stopDriverTracking();
     }
 
     private void showReserveCard(String busNo, String dir, String from, String to, Runnable onReserve) {
@@ -1479,7 +1569,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         ReserveCardDialogFragment f = ReserveCardDialogFragment.newInstance(busNo, dir, from, to);
         f.setOnActionListener(new ReserveCardDialogFragment.OnActionListener() {
             @Override public void onReserveClicked(boolean boardingAlarm, boolean dropOffAlarm) {
-                // 알림 체크박스 값이 필요하면 onReserve 안에서 함께 전달받아 쓰면 됨
                 if (onReserve != null) onReserve.run();
             }
             @Override public void onCancelClicked() { /* no-op */ }
@@ -1595,8 +1684,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         return left + mid + right;
     }
 
-
-    // 버스 경로 그리기
+    // ===== 버스 경로 그리기 (구간) =====
     private void fetchAndDrawPolylinesForReservation(ReservationResponse r) {
         if (naverMap == null || r == null) return;
 
@@ -1604,15 +1692,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (TextUtils.isEmpty(access)) return;
         String bearer = "Bearer " + access;
 
-        // 2) 구간 경로 (출발~도착)
+        // 승차~하차 구간 폴리라인
         ApiClient.get().getSegment(bearer, r.routeId, r.boardArsId, r.destArsId)
                 .enqueue(new Callback<List<RoutePoint>>() {
                     @Override public void onResponse(Call<List<RoutePoint>> call, Response<List<RoutePoint>> res) {
                         if (res.isSuccessful() && res.body()!=null) {
                             drawSegmentPath(res.body());
-
-                            // 예약 직후 화면: 자동 카메라 피팅 대신 "내 위치"로 이동
-                            //moveCameraToMyLocation(/*fallbackToSegment=*/true, res.body());
                         }
                     }
                     @Override public void onFailure(Call<List<RoutePoint>> call, Throwable t) { /* ignore */ }
@@ -1627,17 +1712,16 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         if (segmentPathOverlay == null) segmentPathOverlay = new com.naver.maps.map.overlay.PathOverlay();
         segmentPathOverlay.setCoords(latLngs);
-        segmentPathOverlay.setWidth(50);         // 좀 더 두껍게
-        segmentPathOverlay.setOutlineWidth(3);   // 외곽선으로 강조
+        segmentPathOverlay.setWidth(50);
+        segmentPathOverlay.setOutlineWidth(3);
         segmentPathOverlay.setOutlineColor(0xFFFFFFFF);
-        segmentPathOverlay.setColor(Color.BLUE); // 진한 파란
+        segmentPathOverlay.setColor(Color.BLUE);
         segmentPathOverlay.setMap(naverMap);
         segmentPathOverlay.setPatternImage(OverlayImage.fromResource(R.drawable.path_pattern));
         segmentPathOverlay.setPatternInterval(100);
-    }
 
-    //카메라 피팅
-    private boolean cameraFittedOnce = false;
+        fitCameraIfNeeded(points);
+    }
 
     private void fitCameraIfNeeded(List<RoutePoint> points) {
         if (cameraFittedOnce || naverMap == null || points == null || points.isEmpty()) return;
@@ -1650,13 +1734,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         cameraFittedOnce = true;
     }
 
-    //로그아웃 예약 해지시 버스 경로 정리
+    // 로그아웃/취소 시 경로 오버레이 정리
     private void clearPathOverlays() {
         if (fullPathOverlay != null) { fullPathOverlay.setMap(null); fullPathOverlay = null; }
         if (segmentPathOverlay != null) { segmentPathOverlay.setMap(null); segmentPathOverlay = null; }
         cameraFittedOnce = false;
+        stopDriverTracking();
     }
-
-
-
 }

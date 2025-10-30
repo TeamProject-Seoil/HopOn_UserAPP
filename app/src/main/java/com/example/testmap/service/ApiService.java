@@ -1,13 +1,14 @@
+// app/src/main/java/com/example/testmap/service/ApiService.java
 package com.example.testmap.service;
 
 import com.example.testmap.dto.ArrivalDto;
 import com.example.testmap.dto.BusLocationDto;
 import com.example.testmap.dto.BusRouteDto;
+import com.example.testmap.dto.DriverLocationDto;
 import com.example.testmap.dto.ReservationCreateRequest;
 import com.example.testmap.dto.ReservationResponse;
 import com.example.testmap.dto.RoutePoint;
 import com.example.testmap.dto.StationDto;
-import com.example.testmap.dto.DriverLocationDto;   // ★ 추가
 import com.example.testmap.model.CancelResult;
 
 import java.util.List;
@@ -20,10 +21,8 @@ import retrofit2.Call;
 import retrofit2.http.*;
 
 /**
- * Retrofit2 API 정의
- * ✅ 2025-10 통합 수정판
- *  - 서버(Spring) 컨트롤러 및 시큐리티 설정과 경로/메서드/헤더 정합
- *  - Inquiry/Notice/Reservation/Favorite/User/Auth/Bus APIs 통합
+ * Retrofit2 API
+ * 2025-10 업데이트: 서버(Spring) 경로/보안정책 정합
  */
 public interface ApiService {
 
@@ -31,13 +30,13 @@ public interface ApiService {
     // ================= 버스 / 정류장 ==========================
     // =========================================================
 
-    /** 서울시 공공데이터: 주변 정류장(경량 좌표계) */
+    /** 공공데이터: 주변 정류장 (tmX=x, tmY=y) */
     @GET("/api/nearstations")
     Call<List<StationDto>> getNearStations(@Query("x") double x,
                                            @Query("y") double y,
                                            @Query("radius") int radius);
 
-    /** 도착 정보(정류장 arsId 기준) */
+    /** 정류장 도착 정보(arsId) */
     @GET("/api/stationStop")
     Call<List<ArrivalDto>> getStationArrivals(@Query("arsId") String arsId);
 
@@ -45,11 +44,11 @@ public interface ApiService {
     @GET("/api/busLocation")
     Call<List<BusLocationDto>> getBusLocation(@Query("busRouteId") String busRouteId);
 
-    /** 노선의 정류장 목록(진행방향/seq 포함) */
+    /** 노선 정류장 목록(방향/seq 포함) */
     @GET("/api/busStopList")
     Call<List<BusRouteDto>> getBusRoute(@Query("busRouteId") String busRouteId);
 
-    /** DB-기반 주변 정류장(위경도, 미터 반경) */
+    /** DB-기반 주변 정류장 (위경도/미터 반경) */
     @GET("/api/stations/nearby")
     Call<List<StationDto>> getNearbyStations(@Query("lon") double lon,
                                              @Query("lat") double lat,
@@ -57,19 +56,15 @@ public interface ApiService {
 
     /** 노선 전체 폴리라인 (인증 필요) */
     @GET("/api/busRoutePath")
-    Call<List<RoutePoint>> getFullPath(
-            @Header("Authorization") String bearer,
-            @Query("busRouteId") String routeId
-    );
+    Call<List<RoutePoint>> getFullPath(@Header("Authorization") String bearer,
+                                       @Query("busRouteId") String routeId);
 
     /** 승차~하차 구간 폴리라인 슬라이스 (인증 필요) */
     @GET("/api/busRoutePath/segment")
-    Call<List<RoutePoint>> getSegment(
-            @Header("Authorization") String bearer,
-            @Query("busRouteId") String routeId,
-            @Query("boardArsId") String boardArsId,
-            @Query("destArsId") String destArsId
-    );
+    Call<List<RoutePoint>> getSegment(@Header("Authorization") String bearer,
+                                      @Query("busRouteId") String routeId,
+                                      @Query("boardArsId") String boardArsId,
+                                      @Query("destArsId") String destArsId);
 
     // =========================================================
     // ======================= 인증 ============================
@@ -91,8 +86,8 @@ public interface ApiService {
     @FormUrlEncoded
     @POST("/auth/refresh")
     Call<AuthResponse> refresh(@Field("refreshToken") String token,
-                               @Field("clientType") String c,
-                               @Field("deviceId") String d);
+                               @Field("clientType") String clientType,
+                               @Field("deviceId") String deviceId);
 
     @Multipart
     @POST("/auth/register")
@@ -120,7 +115,7 @@ public interface ApiService {
     @POST("/auth/email/verify-code")
     Call<Map<String,Object>> verifyEmail(@Body VerifyEmailCodeRequest req);
 
-    // 비밀번호 관련
+    // 비밀번호·계정
     @POST("/auth/find-id-after-verify")
     Call<Map<String,Object>> findIdAfterVerify(@Body Map<String,Object> body);
 
@@ -164,7 +159,6 @@ public interface ApiService {
     @POST("/auth/logout")
     Call<Map<String,Object>> logout(@Body LogoutRequest body);
 
-    // 개인정보 수정 / 비밀번호 변경 / 탈퇴
     @Multipart
     @PATCH("/users/me")
     Call<UserResponse> updateMe(@Header("Authorization") String bearer,
@@ -179,10 +173,7 @@ public interface ApiService {
     Call<Map<String,Object>> changePassword(@Header("Authorization") String bearer,
                                             @Body ChangePasswordRequest body);
 
-    class DeleteAccountRequest {
-        public String currentPassword;
-        public DeleteAccountRequest(String c){ currentPassword=c; }
-    }
+    class DeleteAccountRequest { public String currentPassword; public DeleteAccountRequest(String c){ currentPassword=c; } }
     @HTTP(method="DELETE", path="/users/me", hasBody=true)
     Call<Map<String,Object>> deleteMe(@Header("Authorization") String bearer,
                                       @Body DeleteAccountRequest body);
@@ -205,10 +196,12 @@ public interface ApiService {
     Call<CancelResult> cancelReservationById(@Header("Authorization") String bearer,
                                              @Path("id") Long id);
 
-    /** ★ 예약과 매칭된 버스 현재 위치(200 또는 204) */
+    /** 예약과 매칭된 버스 현재 위치(200 OK 또는 204 No Content) */
     @GET("/api/reservations/{id}/location")
-    Call<DriverLocationDto> getReservationLocation(@Header("Authorization") String bearer,
-                                                   @Path("id") Long id);
+    Call<DriverLocationDto> getDriverLocation(
+            @Header("Authorization") String bearer,
+            @Path("id") Long reservationId
+    );
 
     // =========================================================
     // ===================== 즐겨찾기 ==========================
@@ -242,10 +235,10 @@ public interface ApiService {
     // =========================================================
     // =============== 공통: Spring Page 응답 ===================
     // =========================================================
-
+    /** 서버 PageResponse와 필드명 일치 (page/size/...) */
     class PageResponse<T> {
         public List<T> content;
-        public int number;
+        public int page;        // ✅ number → page 로 수정
         public int size;
         public int totalPages;
         public long totalElements;
@@ -264,7 +257,7 @@ public interface ApiService {
     }
     class UnreadCountResp { public long count; }
 
-    /** 공지 목록 (로그인/비로그인 공통, 서버 설정에 따라 Authorization 선택) */
+    /** 공지 목록 (로그인/비로그인 공통; 서버 설정에 따라 Authorization 생략 가능) */
     @GET("/api/notices")
     Call<PageResponse<NoticeResp>> getNotices(@Header("Authorization") String bearer,
                                               @Header("X-User-Role") String role,
@@ -352,7 +345,7 @@ public interface ApiService {
                                                        @Query("password") String password,
                                                        @Query("inline") boolean inline);
 
-    /** (문의 작성: multipart, 로그인/비로그인 가능 — 서버는 X-User-* 또는 JWT로 식별) */
+    /** (문의 작성: multipart, 로그인/비로그인 모두 가능 — 서버는 X-User-* 또는 JWT로 식별) */
     @Multipart
     @POST("/api/inquiries")
     Call<InquiryResp> createInquiry(@Header("X-User-Id") String userId,

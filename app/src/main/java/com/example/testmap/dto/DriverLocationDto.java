@@ -1,58 +1,36 @@
 // app/src/main/java/com/example/testmap/dto/DriverLocationDto.java
 package com.example.testmap.dto;
 
-import androidx.annotation.Nullable;
+import com.google.gson.annotations.SerializedName;
 
-import com.naver.maps.geometry.LatLng;
-
-/**
- * 예약과 매칭된 버스(또는 HopOn 운행)의 현재 위치 DTO
- * 서버 응답 예:
- * {
- *   "operationId": 123,             // null 가능 (HopOn 운행과 아직 미연결)
- *   "lat": 37.5665,
- *   "lon": 126.9780,
- *   "updatedAtIso": "2025-10-30T12:34:56",
- *   "stale": false
- * }
- */
 public class DriverLocationDto {
-    /** HopOn 운행 ID (없을 수 있음) */
-    @Nullable
+    @SerializedName(value = "operationId", alternate = {"opId"})
     public Long operationId;
 
-    /** 위도 (null 가능) */
-    @Nullable
+    @SerializedName(value = "driverName", alternate = {"name"})
+    public String driverName;
+
+    @SerializedName(value = "driverId",   alternate = {"userid", "userId"})
+    public String driverId;
+
+    @SerializedName(value = "company")
+    public String company;
+
+    // 번호판: plainNo 또는 plateNo 로 내려와도 받도록
+    @SerializedName(value = "plainNo",    alternate = {"plateNo", "plate"})
+    public String plainNo;
+
+    // 차량ID: vehId 또는 vehicleId 로 내려와도 받도록
+    @SerializedName(value = "vehId",      alternate = {"vehicleId", "busId"})
+    public String vehId;
+
+    // 좌표: lat/lng 또는 latitude/longitude 로 내려와도 받도록
+    @SerializedName(value = "lat",        alternate = {"latitude", "y"})
     public Double lat;
 
-    /** 경도 (null 가능) */
-    @Nullable
-    public Double lon;
+    @SerializedName(value = "lng",        alternate = {"longitude", "x"})
+    public Double lng;
 
-    /** 서버 기준 갱신 시각(ISO 문자열, 예: 2025-10-30T12:34:56) */
-    @Nullable
-    public String updatedAtIso;
-
-    /** 데이터가 오래되었는지(표시만) */
-    public boolean stale;
-
-    // ---- 편의 메서드 ----
-
-    /** 좌표가 유효한지 간단 체크 */
-    public boolean hasValidCoord() {
-        return lat != null && lon != null
-                && lat >= -90 && lat <= 90
-                && lon >= -180 && lon <= 180;
-    }
-
-    /** 네이버맵 LatLng로 변환 (좌표 없으면 null) */
-    @Nullable
-    public LatLng toLatLng() {
-        return hasValidCoord() ? new LatLng(lat, lon) : null;
-    }
-
-    /** HopOn 운행과 연결되어 있는지 여부 */
-    public boolean hasOperation() {
-        return operationId != null && operationId > 0;
-    }
+    @SerializedName(value = "updatedAt",  alternate = {"updated_at", "ts", "time"})
+    public String updatedAt;
 }
