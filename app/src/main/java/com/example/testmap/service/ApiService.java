@@ -7,6 +7,7 @@ import com.example.testmap.dto.ReservationCreateRequest;
 import com.example.testmap.dto.ReservationResponse;
 import com.example.testmap.dto.RoutePoint;
 import com.example.testmap.dto.StationDto;
+import com.example.testmap.dto.DriverLocationDto;   // ★ 추가
 import com.example.testmap.model.CancelResult;
 
 import java.util.List;
@@ -21,41 +22,47 @@ import retrofit2.http.*;
 /**
  * Retrofit2 API 정의
  * ✅ 2025-10 통합 수정판
- *  - Inquiry API 완전 통합 (비밀글, 비밀번호, multipart 포함)
- *  - Spring Boot Controller 구조와 정합성 맞춤
- *  - NoticeController: markRead, unread-count, read 처리 추가
- *  - 기존 예약/공지/즐겨찾기/회원 API 유지
+ *  - 서버(Spring) 컨트롤러 및 시큐리티 설정과 경로/메서드/헤더 정합
+ *  - Inquiry/Notice/Reservation/Favorite/User/Auth/Bus APIs 통합
  */
 public interface ApiService {
 
     // =========================================================
     // ================= 버스 / 정류장 ==========================
     // =========================================================
+
+    /** 서울시 공공데이터: 주변 정류장(경량 좌표계) */
     @GET("/api/nearstations")
     Call<List<StationDto>> getNearStations(@Query("x") double x,
                                            @Query("y") double y,
                                            @Query("radius") int radius);
 
+    /** 도착 정보(정류장 arsId 기준) */
     @GET("/api/stationStop")
     Call<List<ArrivalDto>> getStationArrivals(@Query("arsId") String arsId);
 
+    /** 노선별 실시간 차량 위치 */
     @GET("/api/busLocation")
     Call<List<BusLocationDto>> getBusLocation(@Query("busRouteId") String busRouteId);
 
+    /** 노선의 정류장 목록(진행방향/seq 포함) */
     @GET("/api/busStopList")
     Call<List<BusRouteDto>> getBusRoute(@Query("busRouteId") String busRouteId);
 
+    /** DB-기반 주변 정류장(위경도, 미터 반경) */
     @GET("/api/stations/nearby")
     Call<List<StationDto>> getNearbyStations(@Query("lon") double lon,
                                              @Query("lat") double lat,
                                              @Query("radius") int radius);
 
+    /** 노선 전체 폴리라인 (인증 필요) */
     @GET("/api/busRoutePath")
     Call<List<RoutePoint>> getFullPath(
             @Header("Authorization") String bearer,
             @Query("busRouteId") String routeId
     );
 
+    /** 승차~하차 구간 폴리라인 슬라이스 (인증 필요) */
     @GET("/api/busRoutePath/segment")
     Call<List<RoutePoint>> getSegment(
             @Header("Authorization") String bearer,
@@ -67,10 +74,11 @@ public interface ApiService {
     // =========================================================
     // ======================= 인증 ============================
     // =========================================================
+
     class AuthRequest {
         public String userid, password, clientType, deviceId;
         public AuthRequest(String u, String p, String c, String d) {
-            userid=u; password=p; clientType=c; deviceId=d;
+            userid = u; password = p; clientType = c; deviceId = d;
         }
     }
     class AuthResponse { public String accessToken, refreshToken, tokenType, role; }
@@ -101,8 +109,8 @@ public interface ApiService {
         public SendEmailCodeRequest(String e, String p){ email=e; purpose=p; }
     }
     class VerifyEmailCodeRequest {
-        public String verificationId,email,purpose,code;
-        public VerifyEmailCodeRequest(String v,String e,String p,String c){
+        public String verificationId, email, purpose, code;
+        public VerifyEmailCodeRequest(String v, String e, String p, String c){
             verificationId=v; email=e; purpose=p; code=c;
         }
     }
@@ -125,8 +133,8 @@ public interface ApiService {
 
     class VerifyCurrentPasswordRequest {
         public String currentPassword, clientType, deviceId;
-        public VerifyCurrentPasswordRequest(String c,String t,String d){
-            currentPassword=c; clientType=t; deviceId=d;
+        public VerifyCurrentPasswordRequest(String c, String t, String d){
+            currentPassword = c; clientType = t; deviceId = d;
         }
     }
     @POST("/auth/verify-current-password")
@@ -134,6 +142,19 @@ public interface ApiService {
                                                    @Body VerifyCurrentPasswordRequest body);
 
     // 로그인 사용자
+    class UserResponse {
+        public Long userNum; public String userid, username, email, tel, role;
+        public boolean hasProfileImage;
+        public String company, approvalStatus, lastLoginAtIso, lastRefreshAtIso;
+        public Boolean hasDriverLicenseFile;
+    }
+    class LogoutRequest {
+        public String clientType, deviceId, refreshToken;
+        public LogoutRequest(String c, String d, String r){
+            clientType = c; deviceId = d; refreshToken = r;
+        }
+    }
+
     @GET("/users/me")
     Call<UserResponse> me(@Header("Authorization") String bearer);
 
@@ -143,19 +164,6 @@ public interface ApiService {
     @POST("/auth/logout")
     Call<Map<String,Object>> logout(@Body LogoutRequest body);
 
-    class UserResponse {
-        public Long userNum; public String userid, username, email, tel, role;
-        public boolean hasProfileImage;
-        public String company, approvalStatus, lastLoginAtIso, lastRefreshAtIso;
-        public Boolean hasDriverLicenseFile;
-    }
-    class LogoutRequest {
-        public String clientType, deviceId, refreshToken;
-        public LogoutRequest(String c,String d,String r){
-            clientType=c; deviceId=d; refreshToken=r;
-        }
-    }
-
     // 개인정보 수정 / 비밀번호 변경 / 탈퇴
     @Multipart
     @PATCH("/users/me")
@@ -164,8 +172,8 @@ public interface ApiService {
                                 @Part MultipartBody.Part file);
 
     class ChangePasswordRequest {
-        public String currentPassword,newPassword;
-        public ChangePasswordRequest(String c,String n){ currentPassword=c; newPassword=n; }
+        public String currentPassword, newPassword;
+        public ChangePasswordRequest(String c, String n){ currentPassword=c; newPassword=n; }
     }
     @POST("/users/me/password")
     Call<Map<String,Object>> changePassword(@Header("Authorization") String bearer,
@@ -175,13 +183,14 @@ public interface ApiService {
         public String currentPassword;
         public DeleteAccountRequest(String c){ currentPassword=c; }
     }
-    @HTTP(method="DELETE",path="/users/me",hasBody=true)
+    @HTTP(method="DELETE", path="/users/me", hasBody=true)
     Call<Map<String,Object>> deleteMe(@Header("Authorization") String bearer,
                                       @Body DeleteAccountRequest body);
 
     // =========================================================
     // ======================= 예약 ============================
     // =========================================================
+
     @POST("/api/reservations")
     Call<ReservationResponse> createReservation(@Header("Authorization") String bearer,
                                                 @Body ReservationCreateRequest body);
@@ -196,9 +205,29 @@ public interface ApiService {
     Call<CancelResult> cancelReservationById(@Header("Authorization") String bearer,
                                              @Path("id") Long id);
 
+    /** ★ 예약과 매칭된 버스 현재 위치(200 또는 204) */
+    @GET("/api/reservations/{id}/location")
+    Call<DriverLocationDto> getReservationLocation(@Header("Authorization") String bearer,
+                                                   @Path("id") Long id);
+
     // =========================================================
     // ===================== 즐겨찾기 ==========================
     // =========================================================
+
+    class FavoriteCreateRequest {
+        public String routeId, direction, boardStopId, boardStopName, boardArsId,
+                destStopId, destStopName, destArsId, routeName;
+        public FavoriteCreateRequest(String r, String d, String bid, String bname, String bars,
+                                     String did, String dname, String dars, String rn){
+            routeId=r; direction=d; boardStopId=bid; boardStopName=bname; boardArsId=bars;
+            destStopId=did; destStopName=dname; destArsId=dars; routeName=rn;
+        }
+    }
+    class FavoriteResponse {
+        public Long id; public String routeId, direction, boardStopId, boardStopName,
+                boardArsId, destStopId, destStopName, destArsId, routeName;
+    }
+
     @POST("/api/favorites")
     Call<FavoriteResponse> addFavorite(@Header("Authorization") String bearer,
                                        @Body FavoriteCreateRequest body);
@@ -210,73 +239,53 @@ public interface ApiService {
     Call<Void> deleteFavorite(@Header("Authorization") String bearer,
                               @Path("id") Long id);
 
-    class FavoriteCreateRequest {
-        public String routeId,direction,boardStopId,boardStopName,boardArsId,
-                destStopId,destStopName,destArsId,routeName;
-        public FavoriteCreateRequest(String r,String d,String bid,String bname,String bars,
-                                     String did,String dname,String dars,String rn){
-            routeId=r; direction=d; boardStopId=bid; boardStopName=bname; boardArsId=bars;
-            destStopId=did; destStopName=dname; destArsId=dars; routeName=rn;
-        }
-    }
-    class FavoriteResponse {
-        public Long id; public String routeId,direction,boardStopId,boardStopName,
-                boardArsId,destStopId,destStopName,destArsId,routeName;
-    }
-
     // =========================================================
     // =============== 공통: Spring Page 응답 ===================
     // =========================================================
+
     class PageResponse<T> {
         public List<T> content;
-        public int number,size,totalPages;
+        public int number;
+        public int size;
+        public int totalPages;
         public long totalElements;
-        public boolean first,last;
+        public boolean first, last;
     }
 
     // =========================================================
     // ================== 공지(Notice) API ======================
     // =========================================================
-    class NoticeResp {
-        public Long id; public String title,content,noticeType,targetRole;
-        public long viewCount;
-        public String createdAt,updatedAt;
 
-        // 선택: 읽음 정보가 Resp에 포함되는 경우 대비(없으면 null)
+    class NoticeResp {
+        public Long id; public String title, content, noticeType, targetRole;
+        public long viewCount;
+        public String createdAt, updatedAt;
         public String readAt;
     }
     class UnreadCountResp { public long count; }
 
-    /**
-     * 목록 조회
-     * - 서버는 Authorization 또는 내부 Resolver로 사용자 식별
-     * - 로그인 시 read 포함 응답 가능
-     */
+    /** 공지 목록 (로그인/비로그인 공통, 서버 설정에 따라 Authorization 선택) */
     @GET("/api/notices")
     Call<PageResponse<NoticeResp>> getNotices(@Header("Authorization") String bearer,
-                                              @Header("X-User-Role") String role, // 선택적
+                                              @Header("X-User-Role") String role,
                                               @Query("page") int page,
                                               @Query("size") int size,
                                               @Query("sort") String sort,
                                               @Query("q") String q,
                                               @Query("type") String type);
 
-    /**
-     * 상세 조회
-     * - 조회수 증가(increase), 읽음 처리(markRead) 플래그 지원
-     *   (NoticeController: @RequestParam(defaultValue="true"))
-     */
+    /** 공지 상세 (increase/read 처리 지원) */
     @GET("/api/notices/{id}")
     Call<NoticeResp> getNoticeDetail(@Header("Authorization") String bearer,
                                      @Path("id") Long id,
                                      @Query("increase") boolean increase,
                                      @Query("markRead") boolean markRead);
 
-    /** 미확인 개수 */
+    /** 미확인 개수 (로그인 필요) */
     @GET("/api/notices/unread-count")
     Call<UnreadCountResp> getNoticeUnreadCount(@Header("Authorization") String bearer);
 
-    /** 특정 Notice 읽음 처리 */
+    /** 특정 공지 읽음 처리 (로그인 필요) */
     @POST("/api/notices/{id}/read")
     Call<Void> markNoticeRead(@Header("Authorization") String bearer,
                               @Path("id") Long id);
@@ -284,13 +293,14 @@ public interface ApiService {
     // =========================================================
     // ================== 문의(Inquiry) API =====================
     // =========================================================
-    class InquiryAtt { public Long id; public String filename,contentType; public long size; }
-    class InquiryRep { public Long id; public String message,createdAt; }
+
+    class InquiryAtt { public Long id; public String filename, contentType; public long size; }
+    class InquiryRep { public Long id; public String message, createdAt; }
     class InquiryResp {
-        public Long id; public String name,email,userid,title,content,status;
-        public boolean secret,hasPassword;
+        public Long id; public String name, email, userid, title, content, status;
+        public boolean secret, hasPassword;
         public List<InquiryAtt> attachments; public List<InquiryRep> replies;
-        public String createdAt,updatedAt;
+        public String createdAt, updatedAt;
     }
 
     /** (공개 목록, 비로그인 가능) */
@@ -313,7 +323,7 @@ public interface ApiService {
                                                    @Query("q") String q,
                                                    @Query("status") String status);
 
-    /** (내 문의 상세) */
+    /** (내 문의 상세, 로그인 필요) */
     @GET("/api/inquiries/{id}")
     Call<InquiryResp> getMyInquiryDetail(@Header("Authorization") String bearer,
                                          @Header("X-User-Id") String userId,
@@ -321,7 +331,7 @@ public interface ApiService {
                                          @Header("X-User-Role") String role,
                                          @Path("id") Long id);
 
-    /** (공개 상세, 비밀번호 필요 시 password 포함) */
+    /** (공개 상세, 비밀번호 필요 시 password 전송) */
     @GET("/api/inquiries/{id}/public")
     Call<InquiryResp> getInquiryPublicDetail(@Path("id") Long id,
                                              @Query("password") String password);
@@ -342,7 +352,7 @@ public interface ApiService {
                                                        @Query("password") String password,
                                                        @Query("inline") boolean inline);
 
-    /** (문의 작성: multipart, 로그인/비로그인 가능) */
+    /** (문의 작성: multipart, 로그인/비로그인 가능 — 서버는 X-User-* 또는 JWT로 식별) */
     @Multipart
     @POST("/api/inquiries")
     Call<InquiryResp> createInquiry(@Header("X-User-Id") String userId,
