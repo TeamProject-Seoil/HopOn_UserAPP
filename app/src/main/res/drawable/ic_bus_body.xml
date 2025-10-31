@@ -1,0 +1,11 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="20dp"
+    android:viewportWidth="240" android:viewportHeight="100">
+    <!-- 본체: 초기색(#FFFFFFFF)로 두고 코드에서 tint -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:strokeColor="#1A1A1A"
+        android:strokeWidth="2"
+        android:pathData="M10,15 H230 a8,8 0,0,1 8,8 v54 a8,8 0,0,1 -8,8 H15
+                          a10,10 0,0,1 -10,-10 V23 a8,8 0,0,1 5,-8 z"/>
+</vector>

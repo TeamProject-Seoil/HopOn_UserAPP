@@ -4,7 +4,13 @@ package com.example.testmap.activity;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.PointF;
+import android.graphics.PorterDuff;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.LayerDrawable;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -26,9 +32,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
+import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.core.view.GravityCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -58,6 +66,7 @@ import com.example.testmap.util.TokenStore;
 import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.naver.maps.geometry.LatLng;
+import com.naver.maps.map.CameraUpdate;
 import com.naver.maps.map.LocationTrackingMode;
 import com.naver.maps.map.MapView;
 import com.naver.maps.map.NaverMap;
@@ -413,6 +422,41 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 });
     }
 
+    private OverlayImage busOverlayImage(@Nullable String routeType) {
+        Drawable base = AppCompatResources.getDrawable(this, R.drawable.ic_bus_driver).mutate();
+        if (base instanceof LayerDrawable) {
+            LayerDrawable ld = (LayerDrawable) base;
+            // index 0 = body 레이어 (위에서 만든 layer-list 순서)
+            Drawable body = ld.getDrawable(0).mutate();
+            DrawableCompat.setTint(body, colorForRoute(routeType));
+            DrawableCompat.setTintMode(body, PorterDuff.Mode.SRC_ATOP);
+        }
+        Bitmap bmp = drawableToBitmap(base, dp(64), dp(28)); // 크기 조절 가능
+        return OverlayImage.fromBitmap(bmp);
+    }
+
+    private static Bitmap drawableToBitmap(Drawable d, int w, int h) {
+        Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(bmp);
+        d.setBounds(0, 0, w, h);
+        d.draw(c);
+        return bmp;
+    }
+
+    private int colorForRoute(@Nullable String routeType) {
+        if (routeType == null) return Color.parseColor("#42A05B"); // 기본 녹색
+        switch (routeType.toUpperCase()) {
+            case "BLUE": case "간선": case "TRUNK":      return Color.parseColor("#2B7DE9");
+            case "GREEN": case "지선": case "BRANCH":
+            case "VILLAGE":                               return Color.parseColor("#42A05B");
+            case "RED": case "광역": case "EXPRESS":      return Color.parseColor("#D2473B");
+            case "YELLOW": case "순환": case "CIRCULAR":  return Color.parseColor("#E3B021");
+            default: return Color.parseColor("#42A05B");
+        }
+    }
+
+
+
     private void renderStationMarkers(List<StationDto> stations) {
         for (Marker m : stationMarkers) m.setMap(null);
         stationMarkers.clear();
@@ -680,27 +724,34 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 });
     }
 
+    private int dp(int v) {
+        return Math.round(getResources().getDisplayMetrics().density * v);
+    }
+
     /** 지도 위 기사 마커 업데이트 + 최초 1회 카메라 맞추기 */
     private void updateDriverMarker(LatLng pos, @Nullable DriverLocationDto d) {
+        if (naverMap == null || pos == null) return;
+
         if (driverMarker == null) {
             driverMarker = new Marker();
-            // 아이콘은 프로젝트 리소스에 맞게 교체(없으면 기본 핀)
-            // 예: R.drawable.ic_bus_driver
-            try { driverMarker.setIcon(OverlayImage.fromResource(R.drawable.ic_bus_driver)); } catch (Throwable ignore) {}
-            driverMarker.setMap(naverMap);
+            driverMarker.setAnchor(new PointF(0.5f, 1f));   // 하단 중앙이 좌표
+            driverMarker.setCaptionText("운행 차량");
+            driverMarker.setWidth(dp(48));                  // 마커 크기
+            driverMarker.setHeight(dp(48));
         }
+
+        String routeType = (d != null) ? d.routeType : null;   // 서버에서 내려온 노선유형
+        driverMarker.setIcon(busOverlayImage(routeType));      // ← 색 적용
+
         driverMarker.setPosition(pos);
+        if (driverMarker.getMap() == null) driverMarker.setMap(naverMap);
 
-        // 캡션: 번호판(plainNo)이 있으면 사용, 없으면 기본 문구
-        String plate = (d != null && !TextUtils.isEmpty(d.plainNo)) ? d.plainNo : "";
-        driverMarker.setCaptionText(TextUtils.isEmpty(plate) ? "운행 차량" : plate);
-
-        // 최초 1회 카메라 부드럽게 센터링 (구간 라인 피팅과 충돌 방지)
         if (!driverCenteredOnce) {
-            naverMap.moveCamera(com.naver.maps.map.CameraUpdate.scrollTo(pos));
+            naverMap.moveCamera(CameraUpdate.scrollTo(pos));
             driverCenteredOnce = true;
         }
     }
+
 
     // ===== 예약(활성 여부 UI만 바텀시트) =====
     private void fetchAndShowActiveReservation() {

@@ -8,4 +8,5 @@ public class DriverLocationDto {
     public String updatedAtIso;
     public boolean stale;
     public String plainNo;    // ← 이거 추가해야 d.plainNo 접근 가능
+    public String routeType;
 }

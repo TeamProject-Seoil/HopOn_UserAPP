@@ -1,49 +1,6 @@
-<!-- res/drawable/ic_bus_driver.xml -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="28dp"
-    android:height="28dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <!-- 본체 -->
-    <path
-        android:fillColor="#1E88E5"
-        android:pathData="M2,7 L18.5,7 a2,2 0,0,1 2,2 v5 a2,2 0,0,1 -2,2 h-0.8 a1.6,1.6 0,0,1 -1.6,-1.6 v-0.9 H4 v0.9 A1.6,1.6 0,0,1 2.4,16 H2 a2,2 0,0,1 -2,-2 v-5 a2,2 0,0,1 2,-2 z"/>
-    <!-- 창문 (연한 파랑) -->
-    <path
-        android:fillColor="#BBDEFB"
-        android:pathData="M3.5,8.5 h5 v3.5 h-5 z"/>
-    <path
-        android:fillColor="#BBDEFB"
-        android:pathData="M9.2,8.5 h4.2 v3.5 h-4.2 z"/>
-    <path
-        android:fillColor="#BBDEFB"
-        android:pathData="M14.2,8.5 h3 v3.5 h-3 z"/>
-    <!-- 문 라인 -->
-    <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="0.9"
-        android:strokeLineCap="round"
-        android:pathData="M8.5,8.2 v4.1"/>
-    <!-- 헤드라이트 -->
-    <path
-        android:fillColor="#FFEE58"
-        android:pathData="M19.2,11.6 h1.6 a0.8,0.8 0,0,0 0.8,-0.8 v-0.8 h-2.4 z"/>
-    <!-- 바퀴 -->
-    <path
-        android:fillColor="#263238"
-        android:pathData="M6.2,17.4 a1.9,1.9 0,1,0 0,3.8 a1.9,1.9 0,1,0 0,-3.8 z"/>
-    <path
-        android:fillColor="#263238"
-        android:pathData="M14.8,17.4 a1.9,1.9 0,1,0 0,3.8 a1.9,1.9 0,1,0 0,-3.8 z"/>
-    <!-- 바퀴 하이라이트 -->
-    <path
-        android:fillColor="#90A4AE"
-        android:pathData="M6.2,18.3 a1,1 0,1,0 0,2 a1,1 0,1,0 0,-2 z"/>
-    <path
-        android:fillColor="#90A4AE"
-        android:pathData="M14.8,18.3 a1,1 0,1,0 0,2 a1,1 0,1,0 0,-2 z"/>
-    <!-- 살짝 그림자 -->
-    <path
-        android:fillColor="#20000000"
-        android:pathData="M2,16.6 h16.7 a1.6,1.6 0,0,1 1.6,1.6 v0.3 H1 v-0.3 a1.6,1.6 0,0,1 1,-1.6 z"/>
-</vector>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- index 0: 본체(여기에만 tint 적용) -->
+    <item android:drawable="@drawable/ic_bus_body"/>
+    <!-- index 1: 디테일(색 고정) -->
+    <item android:drawable="@drawable/ic_bus_details"/>
+</layer-list>
