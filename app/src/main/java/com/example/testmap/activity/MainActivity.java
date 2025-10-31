@@ -691,7 +691,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
         driverMarker.setPosition(pos);
 
-        // 캡션(선택)
+        // 캡션: 번호판(plainNo)이 있으면 사용, 없으면 기본 문구
         String plate = (d != null && !TextUtils.isEmpty(d.plainNo)) ? d.plainNo : "";
         driverMarker.setCaptionText(TextUtils.isEmpty(plate) ? "운행 차량" : plate);
 
