@@ -1,6 +1,6 @@
 package com.example.testmap.activity;
 
-import android.app.ProgressDialog;
+import android.app.Dialog;
 import android.graphics.PorterDuff;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -11,6 +11,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -27,6 +28,7 @@ import com.example.testmap.service.ApiService; // 즐겨찾기 DTO
 import com.example.testmap.ui.BusOverlayDecoration;
 import com.example.testmap.ui.LoginRequiredDialogFragment;
 import com.example.testmap.ui.ReserveDialogFragment;
+import com.example.testmap.ui.UiDialogs;
 import com.example.testmap.util.BusColors;
 import com.example.testmap.util.TokenStore;
 
@@ -39,8 +41,6 @@ import java.util.Map;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
-
-import androidx.appcompat.app.AlertDialog;
 
 public class BusRouteActivity extends AppCompatActivity {
 
@@ -89,6 +89,9 @@ public class BusRouteActivity extends AppCompatActivity {
     // 즐겨찾기 캐시
     private final List<ApiService.FavoriteResponse> favList = new ArrayList<>();
 
+    // ===== Window leak 방지용 =====
+    private Dialog routeDialog;       // 마지막으로 띄운 다이얼로그 보관
+
     private final Runnable refreshTask = new Runnable() {
         @Override
         public void run() {
@@ -115,7 +118,6 @@ public class BusRouteActivity extends AppCompatActivity {
         visibleSeq.clear();
         for (BusRouteDto s : visible) visibleSeq.put(s.seq, true);
     }
-
 
     private void animateTab(int index) {
         int tabWidth = directionLayout.getWidth() / 2;
@@ -145,7 +147,6 @@ public class BusRouteActivity extends AppCompatActivity {
                 android.graphics.Typeface.NORMAL);
     }
 
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -165,7 +166,6 @@ public class BusRouteActivity extends AppCompatActivity {
         adapter = new BusRouteAdapter();
         rv.setAdapter(adapter);
         rv.addItemDecoration(new BusOverlayDecoration(this, rv, adapter));
-        rv.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
 
         ImageView busIcon = findViewById(R.id.bus_icon);
         int color = ContextCompat.getColor(this, BusColors.forRouteType(routeType));
@@ -195,7 +195,6 @@ public class BusRouteActivity extends AppCompatActivity {
             updateTabStyle(1);
             switchDirection(dirRight);
         });
-
 
         focusStationId = getIntent().getStringExtra(EXTRA_FOCUS_STATION_ID);
         focusArsId     = getIntent().getStringExtra(EXTRA_FOCUS_ARS_ID);
@@ -307,15 +306,15 @@ public class BusRouteActivity extends AppCompatActivity {
                     String access = TokenStore.getAccess(getApplicationContext());
                     String bearer = (access != null && !access.isEmpty()) ? ("Bearer " + access) : "";
 
-                    ProgressDialog pd = new ProgressDialog(BusRouteActivity.this);
-                    pd.setMessage("예약 중...");
-                    pd.setCancelable(false);
-                    pd.show();
+                    Dialog pd = UiDialogs.showLoading(BusRouteActivity.this, "예약 중...");
 
                     ApiClient.get().createReservation(bearer, req).enqueue(new Callback<ReservationResponse>() {
                         @Override
                         public void onResponse(Call<ReservationResponse> call, Response<ReservationResponse> resp) {
                             pd.dismiss();
+
+                            if (isFinishing() || isDestroyed()) return; // 액티비티 종료 중이면 UI 작업 안 함
+
                             if (resp.isSuccessful() && resp.body() != null) {
                                 ReservationResponse body = resp.body();
 
@@ -324,16 +323,19 @@ public class BusRouteActivity extends AppCompatActivity {
                                         .putBoolean("JUST_RESERVED", true)
                                         .apply();
 
-                                new androidx.appcompat.app.AlertDialog.Builder(BusRouteActivity.this)
-                                        .setTitle("예약 완료")
-                                        .setMessage(
-                                                "예약번호: " + body.id + "\n" +
-                                                        "출발: " + body.boardStopName + "\n" +
-                                                        "도착: " + body.destStopName
-                                        )
-                                        .setPositiveButton("확인", null)
-                                        .show();
-                                finish();
+                                // 예쁜 카드형 완료 다이얼로그 (1초 후 자동 닫힘 + finish)
+                                routeDialog = UiDialogs.showReservationDone(
+                                        BusRouteActivity.this,
+                                        "노선: " + (TextUtils.isEmpty(routeName) ? arr.busRouteNm : routeName),
+                                        body.boardStopName + " → " + body.destStopName,
+                                        1000L,
+                                        () -> {
+                                            if (!isFinishing() && !isDestroyed()) {
+                                                finish();
+                                            }
+                                        }
+                                );
+
                             } else {
                                 int code = resp.code();
                                 if (code == 401) {
@@ -351,6 +353,7 @@ public class BusRouteActivity extends AppCompatActivity {
                         @Override
                         public void onFailure(Call<ReservationResponse> call, Throwable t) {
                             pd.dismiss();
+                            if (isFinishing() || isDestroyed()) return;
                             Toast.makeText(BusRouteActivity.this, "네트워크 오류: " + t.getMessage(), Toast.LENGTH_LONG).show();
                         }
                     });
@@ -796,5 +799,15 @@ public class BusRouteActivity extends AppCompatActivity {
                         if (onDone != null) onDone.run();
                     }
                 });
+    }
+
+    @Override
+    protected void onDestroy() {
+        // WindowLeaked 방지: 살아있는 다이얼로그 안전 종료
+        if (routeDialog != null && routeDialog.isShowing()) {
+            routeDialog.dismiss();
+        }
+        routeDialog = null;
+        super.onDestroy();
     }
 }

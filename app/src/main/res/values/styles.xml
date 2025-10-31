@@ -73,4 +73,14 @@
         <item name="android:backgroundTint">@null</item>
         <item name="android:textSize">14sp</item>
     </style>
+
+    <!-- res/values/styles.xml -->
+    <style name="HopOn_ReserveCard" parent="Theme.MaterialComponents.DayNight.Dialog">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <!-- android:backgroundDimEnabled 는 생략 -->
+    </style>
+
+
 </resources>

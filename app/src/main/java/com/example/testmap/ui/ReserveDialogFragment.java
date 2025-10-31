@@ -15,7 +15,6 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.TooltipCompat;
 import androidx.core.widget.ImageViewCompat;
 import androidx.fragment.app.DialogFragment;
@@ -107,7 +106,8 @@ public class ReserveDialogFragment extends DialogFragment {
     @NonNull
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-        View view = LayoutInflater.from(requireContext()).inflate(R.layout.reserve_screen, null, false);
+        // ✅ 한 번만 inflate
+        View root = LayoutInflater.from(requireContext()).inflate(R.layout.reserve_screen, null, false);
 
         Bundle args = getArguments() != null ? getArguments() : new Bundle();
 
@@ -115,14 +115,14 @@ public class ReserveDialogFragment extends DialogFragment {
         String arrivalName   = args.getString(ARG_ARRIVAL_NAME,   "도착역");
         String routeName     = args.getString(ARG_ROUTE_NAME,     "버스");
 
-        TextView tvBusNumber     = view.findViewById(R.id.tvBusNumber);
-        TextView tvRidingStation = view.findViewById(R.id.riging_station);
-        TextView tvOutStation    = view.findViewById(R.id.out_station);
-        CheckBox cbBoarding      = view.findViewById(R.id.checkBoardingAlarm);
-        CheckBox cbDropOff       = view.findViewById(R.id.checkDropOffAlarm);
-        Button btnCancel         = view.findViewById(R.id.btnCancel);
-        Button btnReserve        = view.findViewById(R.id.btnReserve);
-        android.widget.ImageView star = view.findViewById(R.id.btnFavoriteActive);
+        TextView tvBusNumber     = root.findViewById(R.id.tvBusNumber);
+        TextView tvRidingStation = root.findViewById(R.id.riging_station);
+        TextView tvOutStation    = root.findViewById(R.id.out_station);
+        CheckBox cbBoarding      = root.findViewById(R.id.checkBoardingAlarm);
+        CheckBox cbDropOff       = root.findViewById(R.id.checkDropOffAlarm);
+        Button btnCancel         = root.findViewById(R.id.btnCancel);
+        Button btnReserve        = root.findViewById(R.id.btnReserve);
+        android.widget.ImageView star = root.findViewById(R.id.btnFavoriteActive);
 
         tvBusNumber.setText(routeName);
         tvRidingStation.setText(departureName);
@@ -230,7 +230,7 @@ public class ReserveDialogFragment extends DialogFragment {
                             applyStar(star, true);
                             if (listener != null) listener.onFavoriteChanged(true, favId[0]);
                         } else if (res.code()==409) {
-                            // 이미 존재 → id 조회해서 동기화
+                            // 이미 존재 → id 조회 후 동기화
                             resolveFavoriteIdThen(bearer, args, id -> {
                                 isFav[0] = true;
                                 if (id != null) favId[0] = id;
@@ -256,23 +256,35 @@ public class ReserveDialogFragment extends DialogFragment {
             }
         });
 
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
-                .setView(view)
-                .create();
+        // ★ AlertDialog 대신 커스텀 스타일의 일반 Dialog 사용
+        Dialog dlg = new Dialog(requireContext(), R.style.HopOn_ReserveCard);
+        dlg.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dlg.setContentView(root); // ← root로 일관화
 
-        dialog.setOnShowListener(d -> {
-            Window w = dialog.getWindow();
-            if (w != null) {
-                w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-                View decor = w.getDecorView();
-                if (decor != null) decor.setPadding(0, 0, 0, 0);
-                w.setLayout(WindowManager.LayoutParams.WRAP_CONTENT,
-                        WindowManager.LayoutParams.WRAP_CONTENT);
-            }
-        });
+        Window w = dlg.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            w.setDimAmount(0.35f);
 
-        return dialog;
+            // ★ 원하는 너비(dp)로 강제 지정
+            int width = (int) (370 * requireContext().getResources().getDisplayMetrics().density);
+            w.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
+        }
+        return dlg;
     }
+
+    @Override public void onStart() {
+        super.onStart();
+        Dialog d = getDialog();
+        if (d != null && d.getWindow() != null) {
+            int desired = dp(370);
+            int safe = Math.min(desired, getResources().getDisplayMetrics().widthPixels - dp(24));
+            d.getWindow().setLayout(safe, WindowManager.LayoutParams.WRAP_CONTENT);
+        }
+    }
+
+    // ===== 즐겨찾기 보조 =====
 
     private interface IdCallback { void onResolved(Long id); }
 
@@ -333,8 +345,8 @@ public class ReserveDialogFragment extends DialogFragment {
     }
 
     private String nullToEmpty(String s) { return s == null ? "" : s; }
-
     private boolean notEmpty(String s) { return s != null && !s.trim().isEmpty(); }
+    private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
 
     /** 바텀시트와 동일한 비주얼 적용 */
     private void applyStar(android.widget.ImageView star, boolean fav) {

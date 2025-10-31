@@ -1,6 +1,8 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- index 0: 본체(여기에만 tint 적용) -->
-    <item android:drawable="@drawable/ic_bus_body"/>
+    <item
+        android:id="@+id/bus_body"
+        android:drawable="@drawable/ic_bus_body"/>
     <!-- index 1: 디테일(색 고정) -->
     <item android:drawable="@drawable/ic_bus_details"/>
 </layer-list>

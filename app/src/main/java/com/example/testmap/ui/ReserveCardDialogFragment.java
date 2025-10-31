@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 
@@ -114,6 +115,11 @@ public class ReserveCardDialogFragment extends DialogFragment {
     @NonNull @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         View v = LayoutInflater.from(requireContext()).inflate(R.layout.reserve_screen, null, false);
+
+
+        // ▼ 눌림/리플 상태 강제 종료 (추가)
+        clearPressedRecursive(v);
+        v.jumpDrawablesToCurrentState();
 
         Bundle args = getArguments() != null ? getArguments() : new Bundle();
 
@@ -240,23 +246,33 @@ public class ReserveCardDialogFragment extends DialogFragment {
             }
         });
 
-        // ===== AlertDialog 구성 =====
-        AlertDialog dlg = new AlertDialog.Builder(requireContext())
-                .setView(v)
-                .create();
+        // ★ AlertDialog 대신 커스텀 스타일의 일반 Dialog 사용
+        Dialog dlg = new Dialog(requireContext(), R.style.HopOn_ReserveCard);
+        dlg.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dlg.setContentView(v);
 
-        dlg.setOnShowListener(d -> {
-            Window w = dlg.getWindow();
-            if (w != null) {
-                w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-                View decor = w.getDecorView();
-                if (decor != null) decor.setPadding(0, 0, 0, 0);
-                w.setLayout(WindowManager.LayoutParams.WRAP_CONTENT,
-                        WindowManager.LayoutParams.WRAP_CONTENT);
-            }
-        });
+        Window w = dlg.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            w.setDimAmount(0.35f);
 
+            // ★ 원하는 너비(dp)로 강제 지정
+            int width = (int) (370 * requireContext().getResources().getDisplayMetrics().density);
+            w.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
+        }
         return dlg;
+    }
+
+    // ▼ 클래스 내부 아무 데나 추가
+    private void clearPressedRecursive(View root) {
+        root.setPressed(false);
+        root.jumpDrawablesToCurrentState();
+        if (root instanceof ViewGroup vg) {
+            for (int i = 0; i < vg.getChildCount(); i++) {
+                clearPressedRecursive(vg.getChildAt(i));
+            }
+        }
     }
 
     private interface IdCallback { void onResolved(Long id); }
