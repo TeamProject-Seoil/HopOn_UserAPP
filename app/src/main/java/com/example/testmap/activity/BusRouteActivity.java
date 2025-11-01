@@ -59,6 +59,8 @@ public class BusRouteActivity extends AppCompatActivity {
 
     private String departureName;
     private String departureArs;
+    private String routeType;
+
 
     private BusRouteAdapter adapter;
     RecyclerView rv;
@@ -131,11 +133,11 @@ public class BusRouteActivity extends AppCompatActivity {
 
     private void updateTabStyle(int index) {
         tvLeft.setTextColor(index == 0 ?
-                ContextCompat.getColor(this, R.color.mainblue) :
+                ContextCompat.getColor(this, R.color.black) :
                 ContextCompat.getColor(this, R.color.grayText));
 
         tvRight.setTextColor(index == 1 ?
-                ContextCompat.getColor(this, R.color.mainblue) :
+                ContextCompat.getColor(this, R.color.black) :
                 ContextCompat.getColor(this, R.color.grayText));
 
         tvLeft.setTypeface(null, index == 0 ?
@@ -145,6 +147,8 @@ public class BusRouteActivity extends AppCompatActivity {
         tvRight.setTypeface(null, index == 1 ?
                 android.graphics.Typeface.BOLD :
                 android.graphics.Typeface.NORMAL);
+
+        underline.setBackgroundColor(ContextCompat.getColor(this, BusColors.forRouteType(routeType)));
     }
 
     @Override
@@ -154,7 +158,7 @@ public class BusRouteActivity extends AppCompatActivity {
 
         String routeNm    = getIntent().getStringExtra(EXTRA_ROUTE_NAME);
         String busRouteId = getIntent().getStringExtra(EXTRA_BUS_ROUTE_ID);
-        String routeType  = getIntent().getStringExtra(EXTRA_BUS_ROUTETYPE);
+        routeType  = getIntent().getStringExtra(EXTRA_BUS_ROUTETYPE);
         String defaultDir = getIntent().getStringExtra("extra_selected_dir");
         currentBusRouteId = getIntent().getStringExtra(EXTRA_BUS_ROUTE_ID);
 
