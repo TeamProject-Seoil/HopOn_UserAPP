@@ -210,15 +210,43 @@ public interface ApiService {
     class FavoriteCreateRequest {
         public String routeId, direction, boardStopId, boardStopName, boardArsId,
                 destStopId, destStopName, destArsId, routeName;
-        public FavoriteCreateRequest(String r, String d, String bid, String bname, String bars,
-                                     String did, String dname, String dars, String rn){
-            routeId=r; direction=d; boardStopId=bid; boardStopName=bname; boardArsId=bars;
-            destStopId=did; destStopName=dname; destArsId=dars; routeName=rn;
+        public Integer busRouteType;   // ⬅ 추가
+        public String routeTypeName;   // ⬅ 추가
+
+        public FavoriteCreateRequest(String routeId, String direction,
+                                     String boardStopId, String boardStopName, String boardArsId,
+                                     String destStopId, String destStopName, String destArsId,
+                                     String routeName,
+                                     Integer busRouteType, String routeTypeName) {
+            this.routeId = routeId;
+            this.direction = direction; // null 가능 → 서버에서 ""로 정규화
+            this.boardStopId = boardStopId;
+            this.boardStopName = boardStopName;
+            this.boardArsId = boardArsId;
+            this.destStopId = destStopId;
+            this.destStopName = destStopName;
+            this.destArsId = destArsId;
+            this.routeName = routeName;
+            this.busRouteType = busRouteType;
+            this.routeTypeName = routeTypeName;
+        }
+
+        // 구형(이전) 생성자도 유지 (호환용)
+        public FavoriteCreateRequest(String routeId, String direction,
+                                     String boardStopId, String boardStopName, String boardArsId,
+                                     String destStopId, String destStopName, String destArsId,
+                                     String routeName) {
+            this(routeId, direction, boardStopId, boardStopName, boardArsId,
+                    destStopId, destStopName, destArsId, routeName, null, null);
         }
     }
+
     class FavoriteResponse {
-        public Long id; public String routeId, direction, boardStopId, boardStopName,
+        public Long id;
+        public String routeId, direction, boardStopId, boardStopName,
                 boardArsId, destStopId, destStopName, destArsId, routeName;
+        public Integer busRouteType;   // ⬅ 추가
+        public String routeTypeName;   // ⬅ 추가
     }
 
     @POST("/api/favorites")

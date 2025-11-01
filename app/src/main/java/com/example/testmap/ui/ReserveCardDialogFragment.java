@@ -13,7 +13,6 @@ import android.view.WindowManager;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.widget.TooltipCompat;
 import androidx.core.widget.ImageViewCompat;
 import androidx.fragment.app.DialogFragment;
@@ -60,11 +59,14 @@ public class ReserveCardDialogFragment extends DialogFragment {
     private static final String ARG_IS_FAVORITE = "is_favorite";
     private static final String ARG_FAVORITE_ID = "favorite_id";
 
-    private OnActionListener listener;
+    // 노선 유형(선택)
+    private static final String ARG_ROUTE_TYPE_CODE = "route_type_code";
+    private static final String ARG_ROUTE_TYPE_NAME = "route_type_name";
 
+    private OnActionListener listener;
     public void setOnActionListener(OnActionListener l) { this.listener = l; }
 
-    /** 기존: 표시 데이터만 (서버 연동 없이 UI 토글만 가능) */
+    /** 표시만 (서버 연동 없이 UI 토글만 가능) */
     public static ReserveCardDialogFragment newInstance(String busNo, String dir, String from, String to) {
         ReserveCardDialogFragment f = new ReserveCardDialogFragment();
         Bundle b = new Bundle();
@@ -76,7 +78,7 @@ public class ReserveCardDialogFragment extends DialogFragment {
         return f;
     }
 
-    /** 서버 연동까지 가능한 전체 파라미터 버전 */
+    /** 서버 연동(13개 인자) */
     public static ReserveCardDialogFragment newInstanceFull(
             // 표시용
             String busNo, String dirLabel, String fromLabel, String toLabel,
@@ -112,12 +114,38 @@ public class ReserveCardDialogFragment extends DialogFragment {
         return f;
     }
 
+    /** 서버 연동 + 노선유형 포함(15개 인자) */
+    public static ReserveCardDialogFragment newInstanceFull(
+            // 표시용
+            String busNo, String dirLabel, String fromLabel, String toLabel,
+            // 서버 연동용
+            String routeId, String direction,
+            String boardId, String boardName, String boardArs,
+            String destId,  String destName,  String destArs,
+            String routeName,
+            boolean isFavorite, Long favoriteId,
+            @Nullable Integer routeTypeCode, @Nullable String routeTypeName
+    ) {
+        ReserveCardDialogFragment f = newInstanceFull(
+                busNo, dirLabel, fromLabel, toLabel,
+                routeId, direction,
+                boardId, boardName, boardArs,
+                destId, destName, destArs,
+                routeName, isFavorite, favoriteId
+        );
+        Bundle b = f.getArguments();
+        if (b == null) b = new Bundle();
+        if (routeTypeCode != null) b.putInt(ARG_ROUTE_TYPE_CODE, routeTypeCode);
+        if (!TextUtils.isEmpty(routeTypeName)) b.putString(ARG_ROUTE_TYPE_NAME, routeTypeName);
+        f.setArguments(b);
+        return f;
+    }
+
     @NonNull @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         View v = LayoutInflater.from(requireContext()).inflate(R.layout.reserve_screen, null, false);
 
-
-        // ▼ 눌림/리플 상태 강제 종료 (추가)
+        // ▼ 눌림/리플 상태 강제 종료
         clearPressedRecursive(v);
         v.jumpDrawablesToCurrentState();
 
@@ -130,17 +158,47 @@ public class ReserveCardDialogFragment extends DialogFragment {
         String to    = args.getString(ARG_TO,     "");
 
         ((android.widget.TextView) v.findViewById(R.id.tvBusNumber)).setText(busNo);
-        ((android.widget.TextView) v.findViewById(R.id.tvBusDirection)).setText(dir);
+        ((android.widget.TextView) v.findViewById(R.id.tvBusDirection)).setText(dir + " 방면");
         ((android.widget.TextView) v.findViewById(R.id.riging_station)).setText(from);
         ((android.widget.TextView) v.findViewById(R.id.out_station)).setText(to);
+
+        // ===== ARS 개별 표시 =====
+        String boardArs = args.getString(ARG_BOARD_ARS);
+        String destArs  = args.getString(ARG_DEST_ARS);
+
+        android.widget.TextView ridingArsTv = v.findViewById(R.id.arrival_information_riding);
+        android.widget.TextView outArsTv    = v.findViewById(R.id.arrival_information);
+
+        if (ridingArsTv != null) {
+            if (!TextUtils.isEmpty(boardArs)) {
+                ridingArsTv.setText(boardArs);
+                ridingArsTv.setVisibility(View.VISIBLE);
+            } else {
+                ridingArsTv.setVisibility(View.GONE);
+            }
+        }
+        if (outArsTv != null) {
+            if (!TextUtils.isEmpty(destArs)) {
+                outArsTv.setText(destArs);
+                outArsTv.setVisibility(View.VISIBLE);
+            } else {
+                outArsTv.setVisibility(View.GONE);
+            }
+        }
+
+        // 체크박스 상호배타
+        android.widget.CheckBox cbBoarding = v.findViewById(R.id.checkBoardingAlarm);
+        android.widget.CheckBox cbDropOff  = v.findViewById(R.id.checkDropOffAlarm);
+        cbBoarding.setOnCheckedChangeListener((b, checked) -> { if (checked) cbDropOff.setChecked(false); });
+        cbDropOff.setOnCheckedChangeListener((b, checked) -> { if (checked) cbBoarding.setChecked(false); });
 
         v.findViewById(R.id.btnCancel).setOnClickListener(view -> {
             if (listener != null) listener.onCancelClicked();
             dismiss();
         });
         v.findViewById(R.id.btnReserve).setOnClickListener(view -> {
-            boolean boarding = ((android.widget.CheckBox) v.findViewById(R.id.checkBoardingAlarm)).isChecked();
-            boolean dropOff  = ((android.widget.CheckBox) v.findViewById(R.id.checkDropOffAlarm)).isChecked();
+            boolean boarding = cbBoarding.isChecked();
+            boolean dropOff  = cbDropOff.isChecked();
             if (listener != null) listener.onReserveClicked(boarding, dropOff);
         });
 
@@ -153,7 +211,6 @@ public class ReserveCardDialogFragment extends DialogFragment {
         applyStar(star, isFav[0]);
 
         star.setOnClickListener(view -> {
-            // 서버 연동 가능한지 체크
             boolean hasAllParams =
                     !isEmpty(args.getString(ARG_ROUTE_ID)) &&
                             !isEmpty(args.getString(ARG_BOARD_ID)) &&
@@ -172,16 +229,13 @@ public class ReserveCardDialogFragment extends DialogFragment {
                 // 필수 값 없으면 UI만 토글
                 isFav[0] = !isFav[0];
                 applyStar(star, isFav[0]);
-                android.widget.Toast
-                        .makeText(requireContext(), "즐겨찾기 정보가 부족해 서버 동기화 없이 표시만 바꿔요.", android.widget.Toast.LENGTH_SHORT)
-                        .show();
+                android.widget.Toast.makeText(requireContext(), "즐겨찾기 정보가 부족해 서버 동기화 없이 표시만 바꿔요.", android.widget.Toast.LENGTH_SHORT).show();
                 return;
             }
 
             if (isFav[0]) {
-                // ===== 삭제 흐름 =====
+                // ===== 삭제 =====
                 if (favId[0] <= 0) {
-                    // ID가 없으면 현재 내 즐겨찾기 목록에서 동일 항목을 찾아 ID를 먼저 해석
                     resolveFavoriteIdThen(bearer, args, id -> {
                         if (id == null) {
                             android.widget.Toast.makeText(requireContext(), "삭제할 즐겨찾기를 찾지 못했습니다.", android.widget.Toast.LENGTH_SHORT).show();
@@ -204,18 +258,41 @@ public class ReserveCardDialogFragment extends DialogFragment {
                     });
                 }
             } else {
-                // ===== 추가 흐름 =====
-                ApiService.FavoriteCreateRequest body = new ApiService.FavoriteCreateRequest(
-                        args.getString(ARG_ROUTE_ID),
-                        args.getString(ARG_DIRECTION),
-                        args.getString(ARG_BOARD_ID),
-                        args.getString(ARG_BOARD_NAME),
-                        args.getString(ARG_BOARD_ARS),
-                        args.getString(ARG_DEST_ID),
-                        args.getString(ARG_DEST_NAME),
-                        args.getString(ARG_DEST_ARS),
-                        args.getString(ARG_ROUTE_NAME)
-                );
+                // ===== 추가 =====
+                Integer typeCode = args.containsKey(ARG_ROUTE_TYPE_CODE) ? args.getInt(ARG_ROUTE_TYPE_CODE) : null;
+                String  typeName = args.getString(ARG_ROUTE_TYPE_NAME, null);
+
+                ApiService.FavoriteCreateRequest body;
+                if (typeCode != null || !TextUtils.isEmpty(typeName)) {
+                    // 노선유형 포함 생성자(있다면 사용)
+                    body = new ApiService.FavoriteCreateRequest(
+                            args.getString(ARG_ROUTE_ID),
+                            args.getString(ARG_DIRECTION),
+                            args.getString(ARG_BOARD_ID),
+                            args.getString(ARG_BOARD_NAME),
+                            args.getString(ARG_BOARD_ARS),
+                            args.getString(ARG_DEST_ID),
+                            args.getString(ARG_DEST_NAME),
+                            args.getString(ARG_DEST_ARS),
+                            args.getString(ARG_ROUTE_NAME),
+                            typeCode,
+                            typeName
+                    );
+                } else {
+                    // 폴백: 기존 생성자
+                    body = new ApiService.FavoriteCreateRequest(
+                            args.getString(ARG_ROUTE_ID),
+                            args.getString(ARG_DIRECTION),
+                            args.getString(ARG_BOARD_ID),
+                            args.getString(ARG_BOARD_NAME),
+                            args.getString(ARG_BOARD_ARS),
+                            args.getString(ARG_DEST_ID),
+                            args.getString(ARG_DEST_NAME),
+                            args.getString(ARG_DEST_ARS),
+                            args.getString(ARG_ROUTE_NAME)
+                    );
+                }
+
                 ApiClient.get().addFavorite(bearer, body).enqueue(new Callback<ApiService.FavoriteResponse>() {
                     @Override public void onResponse(Call<ApiService.FavoriteResponse> call, Response<ApiService.FavoriteResponse> res) {
                         if (res.isSuccessful() && res.body()!=null) {
@@ -224,7 +301,6 @@ public class ReserveCardDialogFragment extends DialogFragment {
                             applyStar(star, true);
                             if (listener != null) listener.onFavoriteChanged(true, favId[0]);
                         } else if (res.code()==409) {
-                            // 이미 존재 → 목록 조회로 ID 파악 후 상태 동기화
                             resolveFavoriteIdThen(bearer, args, id -> {
                                 isFav[0] = true;
                                 if (id != null) favId[0] = id;
@@ -246,7 +322,7 @@ public class ReserveCardDialogFragment extends DialogFragment {
             }
         });
 
-        // ★ AlertDialog 대신 커스텀 스타일의 일반 Dialog 사용
+        // ★ 커스텀 Dialog
         Dialog dlg = new Dialog(requireContext(), R.style.HopOn_ReserveCard);
         dlg.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dlg.setContentView(v);
@@ -256,19 +332,19 @@ public class ReserveCardDialogFragment extends DialogFragment {
             w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
             w.setDimAmount(0.35f);
-
-            // ★ 원하는 너비(dp)로 강제 지정
             int width = (int) (370 * requireContext().getResources().getDisplayMetrics().density);
             w.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
         }
         return dlg;
     }
 
-    // ▼ 클래스 내부 아무 데나 추가
+    // ▼ 유틸
+
     private void clearPressedRecursive(View root) {
         root.setPressed(false);
         root.jumpDrawablesToCurrentState();
-        if (root instanceof ViewGroup vg) {
+        if (root instanceof ViewGroup) {
+            ViewGroup vg = (ViewGroup) root;
             for (int i = 0; i < vg.getChildCount(); i++) {
                 clearPressedRecursive(vg.getChildAt(i));
             }
@@ -329,10 +405,7 @@ public class ReserveCardDialogFragment extends DialogFragment {
     }
 
     private String nullToEmpty(String s) { return s == null ? "" : s; }
-
-    private boolean isEmpty(String s) {
-        return s == null || s.trim().isEmpty();
-    }
+    private boolean isEmpty(String s) { return s == null || s.trim().isEmpty(); }
 
     /** 바텀시트와 동일한 비주얼 적용 */
     private void applyStar(android.widget.ImageView star, boolean fav) {

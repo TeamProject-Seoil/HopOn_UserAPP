@@ -42,7 +42,11 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
     private static final String ARG_IS_FAVORITE     = "is_favorite";
     private static final String ARG_FAVORITE_ID     = "favorite_id";
 
-    private ImageView btnFavorite; // 실제로는 btnFavoriteActive를 우선 찾고, 없으면 btnFavorite로 폴백
+    // 노선 유형(선택)
+    private static final String ARG_ROUTE_TYPE_CODE = "route_type_code";
+    private static final String ARG_ROUTE_TYPE_NAME = "route_type_name";
+
+    private ImageView btnFavorite; // 우선 btnFavoriteActive, 없으면 btnFavorite
     private TextView tvBusNumber, tvBusDirection, tvRidingStation, tvOutStation;
 
     private boolean isFavorite = false;
@@ -57,6 +61,7 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
         this.onFavoriteChangedListener = l;
     }
 
+    /** 기존(표시 위주) 팩토리 */
     public static ReservationBottomSheet newInstance(
             String routeId,
             @Nullable String routeName,
@@ -87,20 +92,55 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
         return sheet;
     }
 
+    /** 확장: 노선유형 없이(13개 인자) */
+    public static ReservationBottomSheet newInstanceFull(
+            String routeId, @Nullable String routeName, @Nullable String direction,
+            String boardStopId, @Nullable String boardStopName, @Nullable String boardArsId,
+            String destStopId, @Nullable String destStopName, @Nullable String destArsId,
+            boolean isFavorite, @Nullable Long favoriteId
+    ) {
+        return newInstance(routeId, routeName, direction,
+                boardStopId, boardStopName, boardArsId,
+                destStopId, destStopName, destArsId,
+                isFavorite, favoriteId);
+    }
+
+    /** 확장: 노선유형 포함(15개 인자) */
+    public static ReservationBottomSheet newInstanceFull(
+            String routeId, @Nullable String routeName, @Nullable String direction,
+            String boardStopId, @Nullable String boardStopName, @Nullable String boardArsId,
+            String destStopId, @Nullable String destStopName, @Nullable String destArsId,
+            boolean isFavorite, @Nullable Long favoriteId,
+            @Nullable Integer routeTypeCode, @Nullable String routeTypeName
+    ) {
+        ReservationBottomSheet sheet = newInstance(
+                routeId, routeName, direction,
+                boardStopId, boardStopName, boardArsId,
+                destStopId, destStopName, destArsId,
+                isFavorite, favoriteId
+        );
+        Bundle b = sheet.getArguments();
+        if (b == null) b = new Bundle();
+        if (routeTypeCode != null) b.putInt(ARG_ROUTE_TYPE_CODE, routeTypeCode);
+        if (!TextUtils.isEmpty(routeTypeName)) b.putString(ARG_ROUTE_TYPE_NAME, routeTypeName);
+        sheet.setArguments(b);
+        return sheet;
+    }
+
     @Nullable @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.reservation_bottomsheet, container, false);
 
-        // ★ 우선 btnFavoriteActive를 찾고, 없으면 btnFavorite로 폴백 (XML 교체 전후 모두 동작)
-        btnFavorite      = v.findViewById(R.id.btnFavoriteActive);
+        // ★ btnFavoriteActive 먼저, 없으면 btnFavorite로 폴백
+        btnFavorite = v.findViewById(R.id.btnFavoriteActive);
         if (btnFavorite == null) btnFavorite = v.findViewById(R.id.btnFavoriteActive);
 
-        tvBusNumber      = v.findViewById(R.id.tvBusNumber);
-        tvBusDirection   = v.findViewById(R.id.tvBusDirection);
-        tvRidingStation  = v.findViewById(R.id.riging_station);
-        tvOutStation     = v.findViewById(R.id.out_station);
+        tvBusNumber     = v.findViewById(R.id.tvBusNumber);
+        tvBusDirection  = v.findViewById(R.id.tvBusDirection);
+        tvRidingStation = v.findViewById(R.id.riging_station);
+        tvOutStation    = v.findViewById(R.id.out_station);
 
         View exit = v.findViewById(R.id.exit_button);
         if (exit != null) exit.setOnClickListener(view -> dismiss());
@@ -109,7 +149,7 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
 
         Bundle args = getArguments() == null ? new Bundle() : getArguments();
 
-        // ==== API로 보낼 원본 값들(null 허용 그대로 유지) ====
+        // ==== API 원본 값 ====
         final String api_routeId       = args.getString(ARG_ROUTE_ID);
         final String api_routeName     = args.getString(ARG_ROUTE_NAME);
         final String api_direction     = args.getString(ARG_DIRECTION);
@@ -120,7 +160,11 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
         final String api_destStopName  = args.getString(ARG_DEST_STOP_NAME);
         final String api_destArsId     = args.getString(ARG_DEST_ARS_ID);
 
-        // ==== 화면 표시용 안전 문자열 ====
+        // ==== 유형 값(선택) ====
+        final Integer api_routeTypeCode = args.containsKey(ARG_ROUTE_TYPE_CODE) ? args.getInt(ARG_ROUTE_TYPE_CODE) : null;
+        final String  api_routeTypeName = args.getString(ARG_ROUTE_TYPE_NAME, null);
+
+        // ==== UI 표시용 ====
         final String ui_routeName = !TextUtils.isEmpty(api_routeName) ? api_routeName : (api_routeId == null ? "" : api_routeId);
         final String ui_direction = api_direction == null ? "" : api_direction;
         final String ui_boardName = api_boardStopName == null ? "" : api_boardStopName;
@@ -147,12 +191,10 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
                 }
                 final String bearer = "Bearer " + access;
 
-                // 서버에 보낼 최소 키가 있는지 확인
                 boolean hasMinimumKeys =
                         !isEmpty(api_routeId) && !isEmpty(api_boardStopId) && !isEmpty(api_destStopId);
 
                 if (!hasMinimumKeys) {
-                    // 서버 연동 불가 → UI만 토글
                     isFavorite = !isFavorite;
                     applyStarIcon(isFavorite);
                     Toast.makeText(requireContext(), "즐겨찾기 정보가 부족해 서버 동기화 없이 표시만 변경합니다.", Toast.LENGTH_SHORT).show();
@@ -164,49 +206,64 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
 
                 if (!isFavorite) {
                     // ===== 추가 =====
-                    ApiService.FavoriteCreateRequest body =
-                            new ApiService.FavoriteCreateRequest(
-                                    api_routeId, api_direction,
-                                    api_boardStopId, api_boardStopName, api_boardArsId,
-                                    api_destStopId, api_destStopName, api_destArsId,
-                                    api_routeName
-                            );
+                    ApiService.FavoriteCreateRequest body;
+                    if (api_routeTypeCode != null || !TextUtils.isEmpty(api_routeTypeName)) {
+                        // 유형 포함 생성자(있어야 함)
+                        body = new ApiService.FavoriteCreateRequest(
+                                api_routeId, api_direction,
+                                api_boardStopId, api_boardStopName, api_boardArsId,
+                                api_destStopId, api_destStopName, api_destArsId,
+                                api_routeName,
+                                api_routeTypeCode, api_routeTypeName
+                        );
+                    } else {
+                        // 기존 생성자
+                        body = new ApiService.FavoriteCreateRequest(
+                                api_routeId, api_direction,
+                                api_boardStopId, api_boardStopName, api_boardArsId,
+                                api_destStopId, api_destStopName, api_destArsId,
+                                api_routeName
+                        );
+                    }
 
                     ApiClient.get().addFavorite(bearer, body)
                             .enqueue(new Callback<ApiService.FavoriteResponse>() {
                                 @Override public void onResponse(
                                         Call<ApiService.FavoriteResponse> call,
                                         Response<ApiService.FavoriteResponse> res) {
-                                    if (res.isSuccessful() && res.body()!=null) {
-                                        isFavorite = true;
-                                        favoriteId = res.body().id;
-                                        applyStarIcon(true);
-                                        Toast.makeText(requireContext(), "즐겨찾기에 추가되었습니다.", Toast.LENGTH_SHORT).show();
-                                        if (onFavoriteChangedListener != null)
-                                            onFavoriteChangedListener.onFavoriteChanged(true, favoriteId);
-                                    } else if (res.code() == 409) {
-                                        // 이미 존재 → ID 해석해서 동기화
-                                        resolveFavoriteIdThen(bearer, api_routeId, api_direction, api_boardStopId, api_destStopId, id -> {
+                                    try {
+                                        if (res.isSuccessful() && res.body()!=null) {
                                             isFavorite = true;
-                                            if (id != null) favoriteId = id;
+                                            favoriteId = res.body().id;
                                             applyStarIcon(true);
+                                            Toast.makeText(requireContext(), "즐겨찾기에 추가되었습니다.", Toast.LENGTH_SHORT).show();
                                             if (onFavoriteChangedListener != null)
                                                 onFavoriteChangedListener.onFavoriteChanged(true, favoriteId);
-                                            Toast.makeText(requireContext(), "이미 즐겨찾기에 있습니다.", Toast.LENGTH_SHORT).show();
-                                        });
-                                    } else if (res.code() == 401) {
-                                        Toast.makeText(requireContext(), "로그인이 만료되었습니다.", Toast.LENGTH_SHORT).show();
-                                        LoginRequiredDialogFragment.show(getParentFragmentManager());
-                                    } else {
-                                        Toast.makeText(requireContext(), "추가 실패 ("+res.code()+")", Toast.LENGTH_SHORT).show();
+                                        } else if (res.code() == 409) {
+                                            // 이미 존재 → ID 동기화
+                                            resolveFavoriteIdThen(bearer, api_routeId, api_direction, api_boardStopId, api_destStopId, id -> {
+                                                isFavorite = true;
+                                                if (id != null) favoriteId = id;
+                                                applyStarIcon(true);
+                                                if (onFavoriteChangedListener != null)
+                                                    onFavoriteChangedListener.onFavoriteChanged(true, favoriteId);
+                                                Toast.makeText(requireContext(), "이미 즐겨찾기에 있습니다.", Toast.LENGTH_SHORT).show();
+                                            });
+                                        } else if (res.code() == 401) {
+                                            Toast.makeText(requireContext(), "로그인이 만료되었습니다.", Toast.LENGTH_SHORT).show();
+                                            LoginRequiredDialogFragment.show(getParentFragmentManager());
+                                        } else {
+                                            Toast.makeText(requireContext(), "추가 실패 ("+res.code()+")", Toast.LENGTH_SHORT).show();
+                                        }
+                                    } finally {
+                                        busy = false;
+                                        btnFavorite.setEnabled(true);
                                     }
-                                    busy = false;
-                                    btnFavorite.setEnabled(true);
                                 }
                                 @Override public void onFailure(Call<ApiService.FavoriteResponse> call, Throwable t) {
-                                    Toast.makeText(requireContext(), "네트워크 오류로 추가 실패", Toast.LENGTH_SHORT).show();
                                     busy = false;
                                     btnFavorite.setEnabled(true);
+                                    Toast.makeText(requireContext(), "네트워크 오류로 추가 실패", Toast.LENGTH_SHORT).show();
                                 }
                             });
 
@@ -222,12 +279,11 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
                     };
 
                     if (favoriteId == null || favoriteId <= 0) {
-                        // ID 모르면 먼저 해석
                         resolveFavoriteIdThen(bearer, api_routeId, api_direction, api_boardStopId, api_destStopId, id -> {
                             if (id == null) {
-                                Toast.makeText(requireContext(), "삭제할 즐겨찾기를 찾지 못했습니다.", Toast.LENGTH_SHORT).show();
                                 busy = false;
                                 btnFavorite.setEnabled(true);
+                                Toast.makeText(requireContext(), "삭제할 즐겨찾기를 찾지 못했습니다.", Toast.LENGTH_SHORT).show();
                                 return;
                             }
                             favoriteId = id;
@@ -249,6 +305,8 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
         ApiClient.get().deleteFavorite(bearer, id)
                 .enqueue(new Callback<Void>() {
                     @Override public void onResponse(Call<Void> call, Response<Void> res) {
+                        busy = false;
+                        if (btnFavorite != null) btnFavorite.setEnabled(true);
                         if (res.isSuccessful() || res.code()==404) {
                             onOk.run();
                         } else if (res.code()==401) {
@@ -257,13 +315,11 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
                         } else {
                             Toast.makeText(requireContext(), "삭제 실패 ("+res.code()+")", Toast.LENGTH_SHORT).show();
                         }
-                        busy = false;
-                        if (btnFavorite != null) btnFavorite.setEnabled(true);
                     }
                     @Override public void onFailure(Call<Void> call, Throwable t) {
-                        Toast.makeText(requireContext(), "네트워크 오류로 삭제 실패", Toast.LENGTH_SHORT).show();
                         busy = false;
                         if (btnFavorite != null) btnFavorite.setEnabled(true);
+                        Toast.makeText(requireContext(), "네트워크 오류로 삭제 실패", Toast.LENGTH_SHORT).show();
                     }
                 });
     }
@@ -313,7 +369,7 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
     private static String nullToEmpty(@Nullable String s) { return s == null ? "" : s; }
     private static boolean isEmpty(@Nullable String s) { return s == null || s.trim().isEmpty(); }
 
-    /** 바텀시트/다이얼로그와 동일한 별 아이콘 스타일 적용 */
+    /** 별 아이콘 스타일/애니메이션 */
     private void applyStarIcon(boolean fav) {
         if (btnFavorite == null) return;
         btnFavorite.setImageResource(R.drawable.ic_star2);

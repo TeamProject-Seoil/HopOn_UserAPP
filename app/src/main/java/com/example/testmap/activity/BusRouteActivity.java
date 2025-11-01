@@ -303,7 +303,9 @@ public class BusRouteActivity extends AppCompatActivity {
                     currentBusRouteId, currentDir,
                     dep.station, dep.stationNm, dep.arsId,
                     arr.station, arr.stationNm, arr.arsId,
-                    isFavoriteInit, matchedFavId
+                    isFavoriteInit, matchedFavId,
+                    toRouteTypeCode(routeType),
+                    !TextUtils.isEmpty(routeType) ? routeType : toRouteTypeLabel(toRouteTypeCode(routeType))
             );
 
             // 예약 + 즐겨찾기 변경 콜백
@@ -759,12 +761,19 @@ public class BusRouteActivity extends AppCompatActivity {
             return;
         }
 
+        // ★ 현재 화면의 routeType(String 라벨) → 코드/라벨 확정
+        Integer typeCode = toRouteTypeCode(routeType);      // 아래 헬퍼 추가
+        String  typeName = !TextUtils.isEmpty(routeType) ? routeType
+                                                                  : toRouteTypeLabel(typeCode);
+
+
         ApiService.FavoriteCreateRequest body = new ApiService.FavoriteCreateRequest(
-                routeId, direction,
-                boardStopId, boardStopName, boardArsId,
-                destStopId, destStopName, destArsId,
-                routeName
-        );
+                      routeId, direction,
+                      boardStopId, boardStopName, boardArsId,
+                      destStopId, destStopName, destArsId,
+                      routeName,
+                      typeCode, typeName   // ★ 유형 동봉!
+                  );
 
         ApiClient.get().addFavorite("Bearer " + access, body)
                 .enqueue(new Callback<ApiService.FavoriteResponse>() {
@@ -787,6 +796,32 @@ public class BusRouteActivity extends AppCompatActivity {
                         if (onDone != null) onDone.run();
                     }
                 });
+    }
+
+    @Nullable
+    private Integer toRouteTypeCode(@Nullable String label) {
+        if (label == null) return null;
+        return switch (label.trim()) {
+            case "공항" -> 1;
+            case "마을" -> 2;
+            case "간선" -> 3;
+            case "지선" -> 4;
+            case "순환" -> 5;
+            case "광역" -> 6;
+            case "인천" -> 7;
+            case "경기" -> 8;
+            case "폐지" -> 9;
+            case "공용" -> 0;
+            default -> null;
+        };
+    }
+    private String toRouteTypeLabel(@Nullable Integer code) {
+        if (code == null) return "공용";
+        return switch (code) {
+            case 1 -> "공항"; case 2 -> "마을"; case 3 -> "간선"; case 4 -> "지선";
+            case 5 -> "순환"; case 6 -> "광역"; case 7 -> "인천"; case 8 -> "경기";
+            case 9 -> "폐지"; default -> "공용";
+        };
     }
 
     private void deleteFavoriteById(@Nullable Long favId, @Nullable Runnable onDone) {

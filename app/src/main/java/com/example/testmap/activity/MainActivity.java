@@ -180,6 +180,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     // 카메라 피팅 1회 제어
     private boolean cameraFittedOnce = false;
 
+    // ★ 즐겨찾기에 보낼 "최근 관측 노선유형" 캐시
+    @Nullable private String  lastKnownRouteTypeLabel = null; // "간선","지선","광역","순환",...
+    @Nullable private Integer lastKnownBusRouteType   = null; // 1~9,0
+
     // ===== 토큰 헬퍼 =====
     @Nullable
     private String pickRefreshToken() {
@@ -521,7 +525,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     }
                 });
     }
-
 
 
 
@@ -913,6 +916,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         }
 
+        // ★ 최근 관측 노선유형 캐시 갱신 (즐겨찾기 추가 시 활용)
+        lastKnownRouteTypeLabel = routeTypeStr;
+        if (d != null && d.getRouteTypeCode() != null) {
+            lastKnownBusRouteType = d.getRouteTypeCode();
+        } else {
+            lastKnownBusRouteType = toRouteTypeCode(routeTypeStr); // 라벨→코드 폴백
+        }
+
         driverMarker.setIcon(busOverlayImage(routeTypeStr));
         driverMarker.setPosition(pos);
         if (driverMarker.getMap() == null) driverMarker.setMap(naverMap);
@@ -934,6 +945,25 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             case 2 -> "마을";   // GREEN 취급
             case 8 -> "경기";   // GREEN 취급(원하면 분리)
             case 1 -> "공항";
+            default -> null;
+        };
+    }
+
+    // ★ 라벨 → 코드(즐겨찾기 전송용 폴백)
+    @Nullable
+    private Integer toRouteTypeCode(@Nullable String label) {
+        if (label == null) return null;
+        return switch (label.trim()) {
+            case "공항" -> 1;
+            case "마을" -> 2;
+            case "간선" -> 3;
+            case "지선" -> 4;
+            case "순환" -> 5;
+            case "광역" -> 6;
+            case "인천" -> 7;
+            case "경기" -> 8;
+            case "폐지" -> 9;
+            case "공용" -> 0;
             default -> null;
         };
     }
@@ -1037,20 +1067,43 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         String displayName = (r.routeName == null || r.routeName.isEmpty())
                 ? r.routeId : r.routeName;
         if (tvRoute != null) tvRoute.setText(displayName);
-        if (tvDir   != null) tvDir.setText(r.direction);
+        if (tvDir   != null) tvDir.setText(r.direction + " 방면");
         if (tvFrom  != null) tvFrom.setText(r.boardStopName);
         if (tvTo    != null) tvTo.setText(r.destStopName);
+
+        // ★ 승차/하차 ARS 각각 표시
+        TextView ridingArsTv = (bottomSheet != null) ? bottomSheet.findViewById(R.id.arrival_information_riding) : null;
+        TextView outArsTv    = (bottomSheet != null) ? bottomSheet.findViewById(R.id.arrival_information)        : null;
+
+        if (ridingArsTv != null) {
+            if (!TextUtils.isEmpty(r.boardArsId)) {
+                ridingArsTv.setText(r.boardArsId);
+                ridingArsTv.setVisibility(View.VISIBLE);
+            } else {
+                ridingArsTv.setVisibility(View.GONE);
+            }
+        }
+        if (outArsTv != null) {
+            if (!TextUtils.isEmpty(r.destArsId)) {
+                outArsTv.setText(r.destArsId);
+                outArsTv.setVisibility(View.VISIBLE);
+            } else {
+                outArsTv.setVisibility(View.GONE);
+            }
+        }
 
         if (btnCancel != null) {
             btnCancel.setOnClickListener(v -> onClickCancel());
         }
+
         wireFavoriteInBottomSheet(r);
-        fetchAndDrawPolylinesForReservation(r);  // ★ 구간 라인 그림
+        fetchAndDrawPolylinesForReservation(r);  // 구간 라인 그림
         boundReservation = r;
 
-        // ★ 바인딩 시 즉시 추적 시작(이중 안전)
+        // 활성 예약 바인딩 직후, 추적 시작(이중 안전)
         startDriverTrackingForReservation(r);
     }
+
 
     // MainActivity.java 클래스 내부 어딘가(예: 공통 유틸 섹션 하단)에 추가
     // MainActivity.java 클래스 내부(공통 유틸 섹션 등)에 추가
@@ -1133,12 +1186,20 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             String bearer = "Bearer " + access;
 
             if (!bottomSheetIsFav) {
-                // 추가
+                // ★ 추가: 노선유형 동봉 (우선 r 값, 폴백으로 lastKnown 캐시)
+                Integer typeCode = (r.busRouteType != null) ? r.busRouteType : lastKnownBusRouteType;
+                String  typeName = !TextUtils.isEmpty(r.routeTypeName) ? r.routeTypeName : lastKnownRouteTypeLabel;
+
                 ApiService.FavoriteCreateRequest body = new ApiService.FavoriteCreateRequest(
                         r.routeId, r.direction,
                         r.boardStopId, r.boardStopName, r.boardArsId,
                         r.destStopId,  r.destStopName,  r.destArsId,
-                        r.routeName
+                        r.routeName,
+                        (r.busRouteType != null ? r.busRouteType
+                                                             : (lastKnownBusRouteType != null ? lastKnownBusRouteType : toRouteTypeCode(lastKnownRouteTypeLabel))),
+                             (!TextUtils.isEmpty(r.routeTypeName) ? r.routeTypeName
+                                                                          : (!TextUtils.isEmpty(lastKnownRouteTypeLabel) ? lastKnownRouteTypeLabel
+                                                                                                                          : toRouteTypeLabel(r.busRouteType)))
                 );
                 ApiClient.get().addFavorite(bearer, body)
                         .enqueue(new retrofit2.Callback<ApiService.FavoriteResponse>() {
@@ -1309,6 +1370,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         tvFrom   = bottomSheet.findViewById(R.id.riging_station);
         tvTo     = bottomSheet.findViewById(R.id.out_station);
         btnCancel= bottomSheet.findViewById(R.id.btnReserve); // 시트 UI 구성에 맞게 사용 (예: "예약 취소")
+
     }
 
     private void onClickCancel() {
@@ -1516,8 +1578,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     @Override public void onItemClick(RecentItem item) {
                         if (recentRecycler != null) {
                             // 선택된 뷰홀더 눌림 해제
-                            // (최근 어댑터에 position 콜백이 없다면 생략해도 되고,
-                            //  아래처럼 그냥 다음 프레임에 show만 미뤄도 효과 있음)
                             recentRecycler.post(() -> onClickRecentItem(item));
                         } else {
                             drawerLayout.post(() -> onClickRecentItem(item));
@@ -1688,7 +1748,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                                 String sub   = safeJoin(f.boardStopName, " → ", f.destStopName);
                                 String dir   = TextUtils.isEmpty(f.direction) ? "방면 정보 없음" : f.direction;
 
-                                favItems.add(new FavoriteItem(title, sub, dir));
+                                // 목록 렌더는 기존 3-필드 모델 유지 (색상/아이콘 확장 원하면 FavoriteItem에 필드 추가)
+                                favItems.add(new FavoriteItem(
+                                        title, sub, dir,
+                                        f.busRouteType,                                  // ★ 함께 보관
+                                        f.routeTypeName
+                                ));
                                 favIds.add(f.id);
                                 favDetailById.put(f.id, f); // ★ 상세 보관(예약용)
                             }
@@ -1754,6 +1819,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             return;
         }
 
+        // ★ 최근 항목엔 노선유형이 없을 수 있으므로 캐시 사용
         ApiService.FavoriteCreateRequest body = new ApiService.FavoriteCreateRequest(
                 item.getRouteId(),
                 item.getDirection(),
@@ -1763,7 +1829,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 item.getDestStopId(),
                 item.getDestStopName(),
                 item.getDestArsId(),
-                item.getRouteName()
+                item.getRouteName(),
+                item.getBusRouteType() != null ? item.getBusRouteType()
+                                                          : (lastKnownBusRouteType != null ? lastKnownBusRouteType : toRouteTypeCode(lastKnownRouteTypeLabel)),
+                   !TextUtils.isEmpty(item.getRouteTypeName()) ? item.getRouteTypeName()
+                                                                       : (!TextUtils.isEmpty(lastKnownRouteTypeLabel) ? lastKnownRouteTypeLabel
+                                                                                                                       : toRouteTypeLabel(item.getBusRouteType()))
         );
 
         ApiClient.get().addFavorite("Bearer " + access, body)

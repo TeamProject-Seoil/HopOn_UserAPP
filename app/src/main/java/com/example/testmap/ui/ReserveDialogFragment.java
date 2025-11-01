@@ -50,6 +50,10 @@ public class ReserveDialogFragment extends DialogFragment {
     private static final String ARG_IS_FAVORITE = "is_favorite";
     private static final String ARG_FAVORITE_ID = "favorite_id";
 
+    // 노선유형(선택)
+    private static final String ARG_ROUTE_TYPE_CODE = "route_type_code";
+    private static final String ARG_ROUTE_TYPE_NAME = "route_type_name";
+
     public interface OnReserveListener {
         void onReserveComplete(String departureName, String arrivalName, String routeName,
                                boolean boardingAlarm, boolean dropOffAlarm);
@@ -73,7 +77,7 @@ public class ReserveDialogFragment extends DialogFragment {
         return f;
     }
 
-    /** 서버 연동까지 가능한 버전 */
+    /** 서버 연동까지 가능한 버전(기존 13개 인자) */
     public static ReserveDialogFragment newInstanceFull(
             String departureName, String arrivalName, String routeName,
             String routeId, String direction,
@@ -103,6 +107,32 @@ public class ReserveDialogFragment extends DialogFragment {
         return f;
     }
 
+    /** 서버 연동 + 노선유형 포함(15개 인자) */
+    public static ReserveDialogFragment newInstanceFull(
+            String departureName, String arrivalName, String routeName,
+            String routeId, String direction,
+            String boardId, String boardName, String boardArs,
+            String destId,  String destName,  String destArs,
+            boolean isFavorite, Long favoriteId,
+            @Nullable Integer routeTypeCode, @Nullable String routeTypeName
+    ) {
+        // 우선 기존 13개짜리로 생성
+        ReserveDialogFragment f = newInstanceFull(
+                departureName, arrivalName, routeName,
+                routeId, direction,
+                boardId, boardName, boardArs,
+                destId, destName, destArs,
+                isFavorite, favoriteId
+        );
+        // 추가 인자 주입
+        Bundle args = f.getArguments();
+        if (args == null) args = new Bundle();
+        if (routeTypeCode != null) args.putInt(ARG_ROUTE_TYPE_CODE, routeTypeCode);
+        if (!TextUtils.isEmpty(routeTypeName)) args.putString(ARG_ROUTE_TYPE_NAME, routeTypeName);
+        f.setArguments(args);
+        return f;
+    }
+
     @NonNull
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
@@ -114,10 +144,17 @@ public class ReserveDialogFragment extends DialogFragment {
         String departureName = args.getString(ARG_DEPARTURE_NAME, "출발역");
         String arrivalName   = args.getString(ARG_ARRIVAL_NAME,   "도착역");
         String routeName     = args.getString(ARG_ROUTE_NAME,     "버스");
+        String direction     = args.getString(ARG_DIRECTION,      null); // ★ 방면
 
         TextView tvBusNumber     = root.findViewById(R.id.tvBusNumber);
         TextView tvRidingStation = root.findViewById(R.id.riging_station);
         TextView tvOutStation    = root.findViewById(R.id.out_station);
+        // ★ 방면 표시용(레이아웃에 존재한다면)
+        TextView tvDirection     = root.findViewById(R.id.tvBusDirection);
+
+        // ★ 승차/하차 ARS(레이아웃에 존재한다면)
+        TextView tvRidingArs     = root.findViewById(R.id.arrival_information_riding);
+        TextView tvOutArs    = root.findViewById(R.id.arrival_information);
         CheckBox cbBoarding      = root.findViewById(R.id.checkBoardingAlarm);
         CheckBox cbDropOff       = root.findViewById(R.id.checkDropOffAlarm);
         Button btnCancel         = root.findViewById(R.id.btnCancel);
@@ -127,6 +164,33 @@ public class ReserveDialogFragment extends DialogFragment {
         tvBusNumber.setText(routeName);
         tvRidingStation.setText(departureName);
         tvOutStation.setText(arrivalName);
+
+        // ★ 방면 표시 (예: "○○ 방면")
+        if (tvDirection != null) {
+            if (!TextUtils.isEmpty(direction)) {
+                tvDirection.setText(direction + " 방면");
+                tvDirection.setVisibility(View.VISIBLE);
+            } else {
+                tvDirection.setVisibility(View.GONE);
+            }
+        }
+
+        // ★ ARS 표시 (있을 때만 노출)
+        String boardArs = args.getString(ARG_BOARD_ARS, null);
+        String destArs  = args.getString(ARG_DEST_ARS,  null);
+        if (tvRidingArs != null) {
+            if (!TextUtils.isEmpty(boardArs)) {
+                tvRidingArs.setText(boardArs);
+                tvRidingArs.setVisibility(View.VISIBLE);
+            } else tvRidingArs.setVisibility(View.GONE);
+        }
+        if (tvOutArs != null) {
+            if (!TextUtils.isEmpty(destArs)) {
+                tvOutArs.setText(destArs);
+                tvOutArs.setVisibility(View.VISIBLE);
+            } else tvOutArs.setVisibility(View.GONE);
+        }
+
 
         // 한 번에 하나만 체크
         cbBoarding.setOnCheckedChangeListener((b, checked) -> { if (checked) cbDropOff.setChecked(false); });
@@ -211,17 +275,43 @@ public class ReserveDialogFragment extends DialogFragment {
                 }
             } else {
                 // ===== 추가 =====
-                ApiService.FavoriteCreateRequest body = new ApiService.FavoriteCreateRequest(
-                        args.getString(ARG_ROUTE_ID),
-                        args.getString(ARG_DIRECTION),
-                        args.getString(ARG_BOARD_ID),
-                        args.getString(ARG_BOARD_NAME),
-                        args.getString(ARG_BOARD_ARS),
-                        args.getString(ARG_DEST_ID),
-                        args.getString(ARG_DEST_NAME),
-                        args.getString(ARG_DEST_ARS),
-                        args.getString(ARG_ROUTE_NAME)
-                );
+                // 노선유형 인자(선택)
+                Integer typeCode = null;
+                if (args.containsKey(ARG_ROUTE_TYPE_CODE)) typeCode = args.getInt(ARG_ROUTE_TYPE_CODE);
+                String  typeName = args.getString(ARG_ROUTE_TYPE_NAME, null);
+
+                ApiService.FavoriteCreateRequest body;
+
+                // ApiService.FavoriteCreateRequest가 유형 포함 생성자를 지원하면 그걸 사용
+                if (typeCode != null || !TextUtils.isEmpty(typeName)) {
+                    body = new ApiService.FavoriteCreateRequest(
+                            args.getString(ARG_ROUTE_ID),
+                            args.getString(ARG_DIRECTION),
+                            args.getString(ARG_BOARD_ID),
+                            args.getString(ARG_BOARD_NAME),
+                            args.getString(ARG_BOARD_ARS),
+                            args.getString(ARG_DEST_ID),
+                            args.getString(ARG_DEST_NAME),
+                            args.getString(ARG_DEST_ARS),
+                            args.getString(ARG_ROUTE_NAME),
+                            typeCode,    // ★ 노선유형 코드
+                            typeName     // ★ 노선유형 라벨
+                    );
+                } else {
+                    // 폴백: 구(舊) 생성자
+                    body = new ApiService.FavoriteCreateRequest(
+                            args.getString(ARG_ROUTE_ID),
+                            args.getString(ARG_DIRECTION),
+                            args.getString(ARG_BOARD_ID),
+                            args.getString(ARG_BOARD_NAME),
+                            args.getString(ARG_BOARD_ARS),
+                            args.getString(ARG_DEST_ID),
+                            args.getString(ARG_DEST_NAME),
+                            args.getString(ARG_DEST_ARS),
+                            args.getString(ARG_ROUTE_NAME)
+                    );
+                }
+
                 ApiClient.get().addFavorite(bearer, body).enqueue(new Callback<ApiService.FavoriteResponse>() {
                     @Override public void onResponse(Call<ApiService.FavoriteResponse> call, Response<ApiService.FavoriteResponse> res) {
                         if (res.isSuccessful() && res.body()!=null) {
