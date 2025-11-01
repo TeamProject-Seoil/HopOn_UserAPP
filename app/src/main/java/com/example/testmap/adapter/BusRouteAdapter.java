@@ -1,10 +1,14 @@
 package com.example.testmap.adapter;
 
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.view.*;
 import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import com.example.testmap.R;
 import com.example.testmap.dto.BusRouteDto;
@@ -14,6 +18,8 @@ public class BusRouteAdapter extends RecyclerView.Adapter<BusRouteAdapter.VH> {
 
     private final Map<String, Float> progressByNextSeq = new HashMap<>();
     private final List<BusRouteDto> items = new ArrayList<>();
+
+    private int timelineColor = 0;
 
     // ===== 선택 상태 =====
 
@@ -106,18 +112,27 @@ public class BusRouteAdapter extends RecyclerView.Adapter<BusRouteAdapter.VH> {
         h.ars.setText(it.arsId);
         h.itemView.setTag(R.id.tag_seq, it.seq);
 
-        // ✅ 출발역인지 여부로 강조 판단(클릭과 무관하게 고정)
+        // ✅ 세로 라인 색
+        if (h.line != null && timelineColor != 0) {
+            h.line.setBackgroundColor(timelineColor);
+        }
+
+        // ✅ 점(dot) 색: layer-list의 바깥 원 stroke를 routeType 색으로
+        if (h.dot != null && timelineColor != 0) {
+            tintDot(h.dot, timelineColor);
+        }
+
+        // ✅ 출발역 강조
         boolean isDeparture = (departureArsId != null && departureArsId.equals(it.arsId));
         h.myLoc.setVisibility(isDeparture ? View.VISIBLE : View.GONE);
         h.itemView.setActivated(isDeparture);
         h.name.setTypeface(null, isDeparture ? android.graphics.Typeface.BOLD
                 : android.graphics.Typeface.NORMAL);
 
-        // ✅ 클릭해도 출발 강조가 바뀌지 않게: setSelectedPos() 호출 제거
         h.itemView.setOnClickListener(v -> {
             int p = h.getBindingAdapterPosition();
             if (p != RecyclerView.NO_POSITION && listener != null) {
-                listener.onStopClick(items.get(p)); // 예약 다이얼로그 등 동작만 수행
+                listener.onStopClick(items.get(p));
             }
         });
     }
@@ -138,5 +153,62 @@ public class BusRouteAdapter extends RecyclerView.Adapter<BusRouteAdapter.VH> {
 
     @Override
     public int getItemCount() { return items.size(); }
+
+    public void setTimelineColor(int color) {
+        this.timelineColor = color;
+        notifyDataSetChanged();
+    }
+
+    // ⬇⬇⬇ 추가: 점 색 변경 헬퍼
+    private void tintDot(@NonNull ImageView dotView, int color) {
+        // 1) src가 있으면 src부터 사용, 없으면 background 사용
+        Drawable raw = dotView.getDrawable() != null ? dotView.getDrawable() : dotView.getBackground();
+        if (raw == null) return;
+
+        // 재활용 이슈 방지 (shared state 오염 방지)
+        Drawable d = raw.getConstantState() != null
+                ? raw.getConstantState().newDrawable().mutate()
+                : raw.mutate();
+
+        if (d instanceof LayerDrawable) {
+            LayerDrawable ld = (LayerDrawable) d;
+
+            // a) 바깥 원 stroke 색 변경
+            Drawable outer = ld.findDrawableByLayerId(R.id.dot_outer);
+            if (outer instanceof GradientDrawable) {
+                GradientDrawable g = (GradientDrawable) outer;
+                int strokePx = (int) dp(dotView, 2);   // 2dp
+                g.setStroke(strokePx, color);
+                // 채움은 흰색 유지 (원하면 g.setColor(color)로 채움 가능)
+            }
+
+            // b) 안쪽 원 색 바꾸고 싶다면 (지금은 흰색 유지)
+            // Drawable inner = ld.findDrawableByLayerId(R.id.dot_inner);
+            // if (inner instanceof GradientDrawable) {
+            //     ((GradientDrawable) inner).setColor(Color.WHITE);
+            // }
+
+            // src/배경 어디에 있었는지에 맞춰 되돌려주기
+            if (dotView.getDrawable() != null) {
+                dotView.setImageDrawable(ld);
+            } else {
+                dotView.setBackground(ld);
+            }
+        } else {
+            // layer-list가 아닌 벡터/PNG라면 전체 틴트 (흰색 영역까지 물들 수 있음)
+            Drawable tinted = d;
+            DrawableCompat.setTint(tinted, color);
+            if (dotView.getDrawable() != null) {
+                dotView.setImageDrawable(tinted);
+            } else {
+                dotView.setBackground(tinted);
+            }
+        }
+    }
+
+    private float dp(@NonNull View v, float dp) {
+        return dp * v.getResources().getDisplayMetrics().density;
+    }
+
 }
 

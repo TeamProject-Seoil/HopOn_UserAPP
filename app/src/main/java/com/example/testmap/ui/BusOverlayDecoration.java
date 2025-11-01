@@ -34,12 +34,17 @@ public class BusOverlayDecoration extends RecyclerView.ItemDecoration {
     private final Paint dividerPaint;
     private final float dividerH;
 
-
-
-
+    private final int timelineColor;
 
     public BusOverlayDecoration(Context ctx, RecyclerView rv, BusRouteAdapter adapter) {
-        this.adapter = adapter; this.rv = rv;
+        this(ctx, rv, adapter, 0xFFE0E0E0);
+    }
+
+    // ★ 추가: 색을 받는 생성자
+    public BusOverlayDecoration(Context ctx, RecyclerView rv, BusRouteAdapter adapter, int timelineColor) {
+        this.adapter = adapter;
+        this.rv = rv;
+        this.timelineColor = timelineColor;
 
         iconSize = dp(ctx,16);
         radius = dp(ctx,10); padH = dp(ctx,8); padV = dp(ctx,5);
@@ -55,7 +60,7 @@ public class BusOverlayDecoration extends RecyclerView.ItemDecoration {
         textPaint.setColor(0xFF333333); textPaint.setTextSize(dp(ctx,12));
 
         congPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        congPaint.setTextSize(dp(ctx,12)); // 색은 혼잡도별로 줄 것
+        congPaint.setTextSize(dp(ctx,12));
 
         smallPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         smallPaint.setColor(0xFF666666); smallPaint.setTextSize(dp(ctx,11));
@@ -65,16 +70,13 @@ public class BusOverlayDecoration extends RecyclerView.ItemDecoration {
         congMed  = ContextCompat.getColor(ctx, R.color.cong_medium_yellow);
         congBusy = ContextCompat.getColor(ctx, R.color.cong_busy_red);
 
-        rv.setLayerType(View.LAYER_TYPE_SOFTWARE, null); // 그림자용
+        rv.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
 
-        // 구분선 페인트
 
-        // ⬇ 추가 (구분선 초기화)
         dividerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         dividerPaint.setStyle(Paint.Style.FILL);
-        dividerPaint.setColor(0xFFE0E0E0); // 연한 회색
-        dividerH = dp(ctx, 1f); // 1dp 두께
-
+        dividerPaint.setColor(0xFFE0E0E0); // ← 항상 연회색(기존처럼)
+        dividerH = dp(ctx, 1f);
     }
 
     @Override

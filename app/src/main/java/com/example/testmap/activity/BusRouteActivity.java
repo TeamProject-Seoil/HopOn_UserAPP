@@ -207,6 +207,21 @@ public class BusRouteActivity extends AppCompatActivity {
             Toast.makeText(this, "출발역: " + departureName, Toast.LENGTH_SHORT).show();
         }
 
+        // BusColors 유틸로 색상 리소스 ID 얻기
+        int timelineColor = ContextCompat.getColor(this, BusColors.forRouteType(routeType));
+
+        // RecyclerView 설정
+        rv = findViewById(R.id.bus_route_list);
+        rv.setLayoutManager(new LinearLayoutManager(this));
+        adapter = new BusRouteAdapter();
+        rv.setAdapter(adapter);
+
+        // 어댑터에도 색상 반영 (세로 라인 색상)
+        adapter.setTimelineColor(timelineColor);
+
+        // BusOverlayDecoration에도 같은 색상 적용
+        rv.addItemDecoration(new BusOverlayDecoration(this, rv, adapter));
+
         // 정류장/방면 데이터
         fetchStops(busRouteId, defaultDir);
 
