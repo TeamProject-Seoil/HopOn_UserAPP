@@ -6,6 +6,11 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
+    <!-- 필요하면 다른 sharedpref는 include -->
+    <include domain="sharedpref" path="*" />
+
+    <!-- 🔒 토큰 저장소는 백업/복원 제외 -->
+    <exclude domain="sharedpref" path="auth_pref.xml" />
     <!--
    <include domain="sharedpref" path="."/>
    <exclude domain="sharedpref" path="device.xml"/>

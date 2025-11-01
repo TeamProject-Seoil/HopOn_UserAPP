@@ -12,6 +12,10 @@ public class TokenStore {
     // ★ 메모리 전용 Access (프로세스 죽으면 자동 삭제됨)
     private static String volatileAccess = null;
 
+
+    // 🔹 메모리 전용 refresh (앱 프로세스 살아있는 동안만)
+    private static String volatileRefresh = null;
+
     public static void saveRefresh(Context ctx, String token) {
         prefs(ctx).edit().putString(KEY_REFRESH, token).apply();
     }
@@ -20,6 +24,18 @@ public class TokenStore {
     }
     public static void clearRefresh(Context ctx) {
         prefs(ctx).edit().remove(KEY_REFRESH).apply();
+    }
+
+
+    // ===== Refresh (메모리) =====
+    public static void setRefreshVolatile(String token) {
+        volatileRefresh = token;
+    }
+    public static String getRefreshVolatile() {
+        return volatileRefresh;
+    }
+    public static void clearRefreshVolatile() {
+        volatileRefresh = null;
     }
 
     // ★ Access는 디스크 X, 메모리만
@@ -37,6 +53,7 @@ public class TokenStore {
     public static void clearAll(Context ctx) {
         prefs(ctx).edit().clear().apply();
         volatileAccess = null;
+        volatileRefresh = null;
     }
     private static SharedPreferences prefs(Context ctx) {
         return ctx.getSharedPreferences(PREF, Context.MODE_PRIVATE);

@@ -73,6 +73,7 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void tryAutoLoginIfPossible() {
+        // 자동로그인은 '영구 refresh'가 있을 때만 시도
         String savedRefresh = TokenStore.getRefresh(this);
         if (savedRefresh == null) return;
 
@@ -82,16 +83,27 @@ public class LoginActivity extends AppCompatActivity {
                     @Override public void onResponse(Call<ApiService.AuthResponse> call, Response<ApiService.AuthResponse> res) {
                         if (res.isSuccessful() && res.body() != null) {
                             ApiService.AuthResponse a = res.body();
+
+                            // access: 메모리
                             TokenStore.saveAccess(LoginActivity.this, a.accessToken);
-                            TokenStore.saveRefresh(LoginActivity.this, a.refreshToken);
+
+                            // refresh: 메모리에도 세팅
+                            if (!TextUtils.isEmpty(a.refreshToken)) {
+                                TokenStore.setRefreshVolatile(a.refreshToken);
+                                // 자동로그인 경로이므로 영구 refresh도 회전 반영
+                                TokenStore.saveRefresh(LoginActivity.this, a.refreshToken);
+                            }
+
                             goMain();
                         } else {
+                            // 실패 시 access만 정리 (영구 refresh는 사용자가 자동로그인 체크했던 값이라 남겨둠)
                             TokenStore.clearAccess(LoginActivity.this);
                         }
                     }
                     @Override public void onFailure(Call<ApiService.AuthResponse> call, Throwable t) { }
                 });
     }
+
 
     private void doLogin() {
         String id = editId.getText().toString().trim();
@@ -107,13 +119,21 @@ public class LoginActivity extends AppCompatActivity {
             @Override public void onResponse(Call<ApiService.AuthResponse> call, Response<ApiService.AuthResponse> res) {
                 if (res.isSuccessful() && res.body() != null) {
                     ApiService.AuthResponse a = res.body();
+
+                    // access: 메모리
                     TokenStore.saveAccess(LoginActivity.this, a.accessToken);
 
+                    // refresh: 항상 메모리에는 보관(실행 중 조용한 갱신용)
+                    TokenStore.setRefreshVolatile(a.refreshToken);
+
                     if (cbAuto.isChecked()) {
+                        // 자동로그인 ON → 영구 보관
                         TokenStore.saveRefresh(LoginActivity.this, a.refreshToken);
                     } else {
+                        // 자동로그인 OFF → 영구 보관 지움(재시작 시 로그인 화면)
                         TokenStore.clearRefresh(LoginActivity.this);
                     }
+
                     goMain();
                 } else if (res.code() == 401) {
                     Toast.makeText(LoginActivity.this, "아이디 또는 비밀번호가 올바르지 않습니다.", Toast.LENGTH_SHORT).show();
