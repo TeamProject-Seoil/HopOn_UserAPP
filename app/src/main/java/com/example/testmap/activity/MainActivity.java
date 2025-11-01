@@ -180,6 +180,32 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     // 카메라 피팅 1회 제어
     private boolean cameraFittedOnce = false;
 
+    // ===== 토큰 헬퍼 =====
+    @Nullable
+    private String pickRefreshToken() {
+        String t = TokenStore.getRefreshVolatile();
+        if (TextUtils.isEmpty(t)) {
+            t = TokenStore.getRefresh(this); // 자동로그인 ON이면 디스크에 있음
+        }
+        return t;
+    }
+
+    private void onRefreshSuccess(ApiService.AuthResponse a) {
+        TokenStore.saveAccess(this, a.accessToken);
+
+        if (!TextUtils.isEmpty(a.refreshToken)) {
+            TokenStore.setRefreshVolatile(a.refreshToken);
+            // ★ 기존에 디스크에 없었어도 항상 저장
+            TokenStore.saveRefresh(this, a.refreshToken);
+        }
+    }
+
+    private void onRefreshFail() {
+        // 자동로그인 설정을 보존하려면 디스크 refresh는 지우지 않음
+        TokenStore.clearAccess(this);
+        TokenStore.clearRefreshVolatile();
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -625,8 +651,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void tryRefreshThenRender() {
-        String refresh = TokenStore.getRefresh(this);
-        if (TextUtils.isEmpty(refresh)) { showLoggedOutUi(); return; }
+        String refresh = pickRefreshToken();
+        if (TextUtils.isEmpty(refresh)) {
+            showLoggedOutUi();
+            return;
+        }
 
         ApiService api = ApiClient.get();
         String deviceId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
@@ -636,18 +665,20 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     @Override public void onResponse(retrofit2.Call<ApiService.AuthResponse> call,
                                                      retrofit2.Response<ApiService.AuthResponse> res) {
                         if (res.isSuccessful() && res.body()!=null) {
-                            TokenStore.saveAccess(MainActivity.this, res.body().accessToken);
-                            TokenStore.saveRefresh(MainActivity.this, res.body().refreshToken);
+                            onRefreshSuccess(res.body());
                             fetchMeAndRender("Bearer " + res.body().accessToken, false);
                         } else {
+                            onRefreshFail();
                             showLoggedOutUi();
                         }
                     }
                     @Override public void onFailure(retrofit2.Call<ApiService.AuthResponse> call, Throwable t) {
+                        onRefreshFail();
                         showLoggedOutUi();
                     }
                 });
     }
+
 
     private void fetchMeAndRender(String bearer, boolean allowRefresh) {
         ApiClient.get().me(bearer).enqueue(new retrofit2.Callback<ApiService.UserResponse>() {
@@ -747,6 +778,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         if (TextUtils.isEmpty(refresh)) {
             TokenStore.clearAccess(this);
+            TokenStore.clearRefreshVolatile();   // ⬅️ 추가
             TokenStore.clearRefresh(this);
             showLoggedOutUi();
             Toast.makeText(this, "로그아웃 되었습니다", Toast.LENGTH_SHORT).show();
@@ -762,6 +794,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             @Override public void onResponse(retrofit2.Call<Map<String,Object>> call,
                                              retrofit2.Response<Map<String,Object>> res) {
                 TokenStore.clearAccess(MainActivity.this);
+                TokenStore.clearRefreshVolatile(); // ⬅️ 추가
                 TokenStore.clearRefresh(MainActivity.this);
                 showLoggedOutUi();
                 Toast.makeText(MainActivity.this, "로그아웃 되었습니다", Toast.LENGTH_SHORT).show();
@@ -772,6 +805,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
             @Override public void onFailure(retrofit2.Call<Map<String,Object>> call, Throwable t) {
                 TokenStore.clearAccess(MainActivity.this);
+                TokenStore.clearRefreshVolatile(); // ⬅️ 추가
                 TokenStore.clearRefresh(MainActivity.this);
                 showLoggedOutUi();
                 updateReservationSheetVisibility(false, false);
@@ -781,6 +815,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         });
     }
+
 
     /** 활성 예약이 바인딩되면 기사 위치 폴링 시작 */
     private void startDriverTrackingForReservation(@NonNull ReservationResponse r) {
