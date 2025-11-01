@@ -76,7 +76,7 @@ import com.naver.maps.map.OnMapReadyCallback;
 import com.naver.maps.map.overlay.Marker;
 import com.naver.maps.map.overlay.OverlayImage;
 import com.naver.maps.map.util.FusedLocationSource;
-
+import com.naver.maps.map.overlay.CircleOverlay;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -130,7 +130,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Nullable private Long bottomSheetFavId = null;
 
     // 위치 기준
-    private static final int   RADIUS_M            = 1000;
+    private static final int   RADIUS_M            = 300;
     private static final float MIN_MOVE_METERS     = 25f;
     private static final long  MIN_INTERVAL_MS     = 7_000L;
     private static final float ACCURACY_MAX_METERS = 20f;
@@ -172,6 +172,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private final List<RecentItem> recentItems = new ArrayList<>();
     private TextView emptyFavText, emptyRecentText;
 
+    // 원(위치 기준)
+    @Nullable private CircleOverlay rangeCircle = null;
+
+    // 반경(m): 주변 정류장 탐색 반경과 동일하게 사용
+    private static final int RANGE_METERS = RADIUS_M; // RADIUS_M = 1000 그대로 이용
     // 카메라 피팅 1회 제어
     private boolean cameraFittedOnce = false;
 
@@ -402,11 +407,46 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         naverMap.getLocationOverlay().setVisible(true);
     }
 
+    /** 위치 중심 원 생성/갱신 */
+    private void updateRangeCircle(@NonNull LatLng center, double radiusMeters) {
+        if (naverMap == null) return;
+        if (center == null ||
+                Double.isNaN(center.latitude) || Double.isNaN(center.longitude)) {
+            return; // 좌표가 유효하지 않으면 그리지 않음
+        }
+
+        if (rangeCircle == null) {
+            rangeCircle = new CircleOverlay();
+            rangeCircle.setOutlineWidth(4);
+            rangeCircle.setOutlineColor(Color.parseColor("#4B93FF"));
+            rangeCircle.setColor(Color.argb(0x33, 0x4B, 0x93, 0xFF));
+            // 여기서는 setMap 하지 않음
+        }
+
+        rangeCircle.setCenter(center);
+        rangeCircle.setRadius(radiusMeters);
+
+        if (rangeCircle.getMap() == null) {
+            rangeCircle.setMap(naverMap); // ✅ center/radius 세팅 후에 붙이기
+        }
+    }
+
+    /** (옵션) 외부에서 반경만 바꾸고 싶을 때 호출 */
+    public void setRangeRadius(double meters) {
+        if (rangeCircle != null) {
+            rangeCircle.setRadius(meters);
+        }
+    }
+
     private void hookLocationCallback() {
         if (naverMap == null) return;
 
         naverMap.addOnLocationChangeListener(location -> {
             if (location == null) return;
+
+            double lat = location.getLatitude();
+            double lng = location.getLongitude();
+            if (Double.isNaN(lat) || Double.isNaN(lng)) return;
 
             if (!firstFixAccepted) {
                 firstFixAccepted = true;
@@ -416,6 +456,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
             LatLng now = new LatLng(location.getLatitude(), location.getLongitude());
             lastFix = now;
+
+            updateRangeCircle(now, RANGE_METERS);
 
             long nowMs = System.currentTimeMillis();
             if (lastFetchedCenter == null) {
@@ -433,6 +475,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         });
     }
+
+
 
     // 주변 정류장
     private void fetchNearStations(double longitude, double latitude, int radius) {
@@ -2033,6 +2077,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private void clearPathOverlays() {
         if (fullPathOverlay != null) { fullPathOverlay.setMap(null); fullPathOverlay = null; }
         if (segmentPathOverlay != null) { segmentPathOverlay.setMap(null); segmentPathOverlay = null; }
+        if (rangeCircle != null) { rangeCircle.setMap(null); rangeCircle = null; }
         cameraFittedOnce = false;
         stopDriverTracking(); // ★ 추적 중단
     }
