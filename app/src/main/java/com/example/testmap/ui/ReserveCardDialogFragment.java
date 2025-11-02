@@ -16,7 +16,6 @@ import android.view.WindowManager;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.TooltipCompat;
-import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.core.widget.ImageViewCompat;
 import androidx.fragment.app.DialogFragment;
@@ -27,7 +26,6 @@ import android.widget.ImageView;
 import com.example.testmap.R;
 import com.example.testmap.service.ApiClient;
 import com.example.testmap.service.ApiService;
-import com.example.testmap.util.BusColors;
 import com.example.testmap.util.TokenStore;
 
 import java.util.List;
@@ -202,8 +200,7 @@ public class ReserveCardDialogFragment extends DialogFragment {
             int color = localBusColorInt(typeCodeArg, typeNameArg); // ← 여기!
 
             busIcon.setImageResource(R.drawable.vector); // 단색/레이어 버스 아이콘
-            tintBusIcon(busIcon, color);                // 이미 클래스에 있는 유틸
-            // 또는: ImageViewCompat.setImageTintList(busIcon, ColorStateList.valueOf(color));
+            tintBusIcon(busIcon, color);
         }
 
         // 체크박스 상호배타
@@ -354,18 +351,17 @@ public class ReserveCardDialogFragment extends DialogFragment {
     }
 
     // ▼ 유틸
-    // ReserveCardDialogFragment 안에 추가
     private int localBusColorInt(@Nullable Integer code, @Nullable String name) {
         // 코드 우선 → 없으면 한글 라벨로
         if (code != null) {
             switch (code) {
                 case 3: return Color.parseColor("#2B7DE9"); // 간선(파랑)
-                case 4: return Color.parseColor("#42A05B"); // 지선(초록)
+                case 4: return Color.parseColor("#4CAF50"); // 지선(초록)
                 case 6: return Color.parseColor("#D2473B"); // 광역(빨강)
                 case 5: return Color.parseColor("#E3B021"); // 순환(노랑)
-                case 2: return Color.parseColor("#42A05B"); // 마을=초록 취급
+                case 2: return Color.parseColor("#4CAF50"); // 마을=초록 취급
                 case 8: return Color.parseColor("#42A05B"); // 경기=초록 취급(필요시 분리)
-                case 1: return Color.parseColor("#7E57C2"); // 공항(예시 보라)
+                case 1: return Color.parseColor("#FF9800"); // 공항
                 default: return Color.parseColor("#42A05B"); // 기본 초록
             }
         }
@@ -373,29 +369,17 @@ public class ReserveCardDialogFragment extends DialogFragment {
             String label = name.trim();
             switch (label) {
                 case "간선": return Color.parseColor("#2B7DE9");
-                case "지선": return Color.parseColor("#42A05B");
+                case "지선": return Color.parseColor("#4CAF50");
                 case "광역": return Color.parseColor("#D2473B");
                 case "순환": return Color.parseColor("#E3B021");
-                case "마을": return Color.parseColor("#42A05B");
+                case "마을": return Color.parseColor("#4CAF50");
                 case "경기": return Color.parseColor("#42A05B");
-                case "공항": return Color.parseColor("#7E57C2");
+                case "공항": return Color.parseColor("#FF9800");
             }
         }
         return Color.parseColor("#42A05B");
     }
 
-
-    /** @ColorRes / @ColorInt를 모두 안전하게 처리 */
-    private int resolveBusColor(@Nullable String label) {
-        int c = com.example.testmap.util.BusColors.forRouteType(label);
-        try {
-            return ContextCompat.getColor(requireContext(), c);
-        } catch (Exception ignored) {
-            return c;
-        }
-    }
-
-    /** 어떤 종류의 드로어블이 와도 색을 강제로 반영 */
     /** 어떤 종류의 드로어블이 와도 색을 강제로 반영 (LayerDrawable/Vector 대응) */
     private void tintBusIcon(@NonNull ImageView view, int color) {
         Drawable d = view.getDrawable();

@@ -172,6 +172,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     private final List<RecentItem> recentItems = new ArrayList<>();
     private TextView emptyFavText, emptyRecentText;
 
+    @Nullable private String driverCaptionText = null;
     // 원(위치 기준)
     @Nullable private CircleOverlay rangeCircle = null;
 
@@ -583,30 +584,56 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         String s = routeTypeRaw.trim();
         if (s.isEmpty()) return Color.parseColor("#42A05B");
 
-        // 영문 대문자 비교용
         String u = s.toUpperCase(java.util.Locale.ROOT);
 
-        // 한글 라벨 우선 매칭
+        // ================================
+        // 🟩 한글 라벨 매핑
+        // ================================
         switch (s) {
+            case "공항": return Color.parseColor("#FF9800");   // 주황 (공항)
+            case "마을": return Color.parseColor("#42A05B");   // 초록 (마을버스)
             case "간선": return Color.parseColor("#2B7DE9");   // 파랑
             case "지선": return Color.parseColor("#42A05B");   // 초록
-            case "광역": return Color.parseColor("#D2473B");   // 빨강
             case "순환": return Color.parseColor("#E3B021");   // 노랑
+            case "광역": return Color.parseColor("#D2473B");   // 빨강
+            case "경기": return Color.parseColor("#009688");   // 청록
+            case "인천": return Color.parseColor("#9C27B0");   // 보라
+            case "공용": return Color.parseColor("#9E9E9E");   // 회색
+            case "폐지": return Color.parseColor("#757575");   // 진회색
         }
 
-        // 영문 별칭/레거시 매칭
+        // ================================
+        // 🟦 영문 별칭/코드 문자열 매핑
+        // ================================
         switch (u) {
-            case "BLUE": case "TRUNK":            return Color.parseColor("#2B7DE9");
-            case "GREEN": case "BRANCH":
-            case "VILLAGE":                       return Color.parseColor("#42A05B");
-            case "RED": case "EXPRESS":           return Color.parseColor("#D2473B");
-            case "YELLOW": case "CIRCULAR":       return Color.parseColor("#E3B021");
+            // 공항/공용/폐지
+            case "AIRPORT":    return Color.parseColor("#FF9800");
+            case "COMMON":     return Color.parseColor("#9E9E9E");
+            case "ABOLISHED":
+            case "DISUSED":    return Color.parseColor("#757575");
+
+            // 기본 서울 계열
+            case "TRUNK":
+            case "BLUE":       return Color.parseColor("#2B7DE9"); // 간선
+            case "BRANCH":
+            case "GREEN":
+            case "VILLAGE":    return Color.parseColor("#42A05B"); // 지선/마을
+            case "YELLOW":
+            case "CIRCULAR":   return Color.parseColor("#E3B021"); // 순환
+            case "RED":
+            case "EXPRESS":
+            case "WIDEAREA":   return Color.parseColor("#D2473B"); // 광역
+
+            // 지역 계열
+            case "GYEONGGI":   return Color.parseColor("#009688"); // 경기
+            case "INCHEON":    return Color.parseColor("#9C27B0"); // 인천
         }
 
-        return Color.parseColor("#42A05B");
+        // ================================
+        // 기본값
+        // ================================
+        return Color.parseColor("#42A05B"); // 기본 초록 (지선)
     }
-
-
 
     private void renderStationMarkers(List<StationDto> stations) {
         for (Marker m : stationMarkers) m.setMap(null);
@@ -899,9 +926,17 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (driverMarker == null) {
             driverMarker = new Marker();
             driverMarker.setAnchor(new PointF(0.5f, 1f));
-            driverMarker.setCaptionText("운행 차량");
             driverMarker.setWidth(dp(48));
             driverMarker.setHeight(dp(48));
+            // ★ 노선명 캡션 표시
+            String captionText = null;
+            if (!TextUtils.isEmpty(driverCaptionText)) captionText = driverCaptionText;
+            else if (d != null) {
+                if (!TextUtils.isEmpty(d.plainNo)) captionText = d.plainNo;
+                else if (!TextUtils.isEmpty(d.routeType)) captionText = d.routeType;
+            }
+            if (TextUtils.isEmpty(captionText)) captionText = "운행 차량";
+            driverMarker.setCaptionText(captionText);
         }
 
         // ★ 우선순위: routeType(문자) → routeTypeLabel(문자) → routeTypeCode(숫자→라벨)
@@ -1113,6 +1148,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         fetchAndDrawPolylinesForReservation(r);  // 구간 라인 그림
         boundReservation = r;
 
+        displayName = !TextUtils.isEmpty(r.routeName) ? r.routeName : r.routeId;
+        driverCaptionText = displayName; // ← 운행 차량 마커 캡션에 쓸 텍스트 캐시
+
         // 활성 예약 바인딩 직후, 추적 시작(이중 안전)
         startDriverTrackingForReservation(r);
     }
@@ -1134,6 +1172,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (label == null && code != null) {
             label = toRouteTypeLabel(code);
         }
+
+        android.util.Log.d("BTSHEET_COLOR",
+                "resolveRouteColor() input → " +
+                        "routeTypeName=" + r.routeTypeName + ", " +
+                        "busRouteType=" + r.busRouteType + ", " +
+                        "lastKnownLabel=" + lastKnownRouteTypeLabel + ", " +
+                        "lastKnownCode=" + lastKnownBusRouteType + ", " +
+                        "→ 최종 label=" + label + ", code=" + code);
 
         // 3) 라벨/영문 별칭 매핑 (MainActivity의 colorForRoute(String) 재사용)
         if (label != null) {
@@ -1233,10 +1279,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         r.destStopId,  r.destStopName,  r.destArsId,
                         r.routeName,
                         (r.busRouteType != null ? r.busRouteType
-                                                             : (lastKnownBusRouteType != null ? lastKnownBusRouteType : toRouteTypeCode(lastKnownRouteTypeLabel))),
-                             (!TextUtils.isEmpty(r.routeTypeName) ? r.routeTypeName
-                                                                          : (!TextUtils.isEmpty(lastKnownRouteTypeLabel) ? lastKnownRouteTypeLabel
-                                                                                                                          : toRouteTypeLabel(r.busRouteType)))
+                                : (lastKnownBusRouteType != null ? lastKnownBusRouteType : toRouteTypeCode(lastKnownRouteTypeLabel))),
+                        (!TextUtils.isEmpty(r.routeTypeName) ? r.routeTypeName
+                                : (!TextUtils.isEmpty(lastKnownRouteTypeLabel) ? lastKnownRouteTypeLabel
+                                : toRouteTypeLabel(r.busRouteType)))
                 );
                 ApiClient.get().addFavorite(bearer, body)
                         .enqueue(new retrofit2.Callback<ApiService.FavoriteResponse>() {
@@ -1868,10 +1914,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 item.getDestArsId(),
                 item.getRouteName(),
                 item.getBusRouteType() != null ? item.getBusRouteType()
-                                                          : (lastKnownBusRouteType != null ? lastKnownBusRouteType : toRouteTypeCode(lastKnownRouteTypeLabel)),
-                   !TextUtils.isEmpty(item.getRouteTypeName()) ? item.getRouteTypeName()
-                                                                       : (!TextUtils.isEmpty(lastKnownRouteTypeLabel) ? lastKnownRouteTypeLabel
-                                                                                                                       : toRouteTypeLabel(item.getBusRouteType()))
+                        : (lastKnownBusRouteType != null ? lastKnownBusRouteType : toRouteTypeCode(lastKnownRouteTypeLabel)),
+                !TextUtils.isEmpty(item.getRouteTypeName()) ? item.getRouteTypeName()
+                        : (!TextUtils.isEmpty(lastKnownRouteTypeLabel) ? lastKnownRouteTypeLabel
+                        : toRouteTypeLabel(item.getBusRouteType()))
         );
 
         ApiClient.get().addFavorite("Bearer " + access, body)
