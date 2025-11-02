@@ -535,9 +535,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (cached != null) return cached;
 
         // onCreate() 끝이나 onMapReady() 직후 한 번만 준비
-        defaultBusIcon = OverlayImage.fromResource(R.drawable.ic_bus_driver);
+        defaultBusIcon = OverlayImage.fromResource(R.drawable.ic_driver_bus);
 
-        Drawable base = AppCompatResources.getDrawable(this, R.drawable.ic_bus_driver);
+        Drawable base = AppCompatResources.getDrawable(this, R.drawable.ic_driver_bus);
         if (base == null) return defaultBusIcon;
         base = DrawableCompat.wrap(base).mutate();
 
@@ -2154,6 +2154,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         List<LatLng> latLngs = new ArrayList<>(points.size());
         for (RoutePoint p : points) latLngs.add(new LatLng(p.lat, p.lng));
+
+        // ✅ 여기!!! 최소 2점 체크
+        if (latLngs.size() < 2) {
+            android.util.Log.e("PATH", "coords.size < 2 skip");
+            return;
+        }
 
         if (segmentPathOverlay == null) segmentPathOverlay = new com.naver.maps.map.overlay.PathOverlay();
         segmentPathOverlay.setCoords(latLngs);
