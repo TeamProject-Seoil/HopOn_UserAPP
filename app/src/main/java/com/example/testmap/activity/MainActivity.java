@@ -1071,6 +1071,19 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (tvFrom  != null) tvFrom.setText(r.boardStopName);
         if (tvTo    != null) tvTo.setText(r.destStopName);
 
+        // ★ 바텀시트 버스 아이콘 색상 적용
+        if (bottomSheet != null) {
+            ImageView busIcon = bottomSheet.findViewById(R.id.imgBusIconbottom);
+            if (busIcon != null) {
+                // 틴트 가능한 단색 벡터여야 함 (vector.xml)
+                busIcon.setImageResource(R.drawable.vector);
+                int color = resolveRouteColor(r);
+                ImageViewCompat.setImageTintList(busIcon, ColorStateList.valueOf(color));
+                // 필요하면 모드 지정
+                // ImageViewCompat.setImageTintMode(busIcon, PorterDuff.Mode.SRC_IN);
+            }
+        }
+
         // ★ 승차/하차 ARS 각각 표시
         TextView ridingArsTv = (bottomSheet != null) ? bottomSheet.findViewById(R.id.arrival_information_riding) : null;
         TextView outArsTv    = (bottomSheet != null) ? bottomSheet.findViewById(R.id.arrival_information)        : null;
@@ -1104,6 +1117,30 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         startDriverTrackingForReservation(r);
     }
 
+    /** ReservationResponse/캐시값을 바탕으로 실제 @ColorInt 반환 */
+    private int resolveRouteColor(@Nullable ReservationResponse r) {
+        // 1) 우선순위: 서버 라벨 → 서버 코드 → 마지막 관측 캐시 라벨/코드
+        String label = null;
+        Integer code = null;
+
+        if (r != null) {
+            if (!TextUtils.isEmpty(r.routeTypeName)) label = r.routeTypeName; // "간선","지선",...
+            if (r.busRouteType != null) code = r.busRouteType;                // 1~9,0
+        }
+        if (label == null && lastKnownRouteTypeLabel != null) label = lastKnownRouteTypeLabel;
+        if (code  == null && lastKnownBusRouteType   != null) code  = lastKnownBusRouteType;
+
+        // 2) 코드가 있으면 코드→라벨 폴백
+        if (label == null && code != null) {
+            label = toRouteTypeLabel(code);
+        }
+
+        // 3) 라벨/영문 별칭 매핑 (MainActivity의 colorForRoute(String) 재사용)
+        if (label != null) {
+            return colorForRoute(label);
+        }
+        return colorForRoute(null); // 기본색(초록)
+    }
 
     // MainActivity.java 클래스 내부 어딘가(예: 공통 유틸 섹션 하단)에 추가
     // MainActivity.java 클래스 내부(공통 유틸 섹션 등)에 추가
@@ -1887,7 +1924,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 f.boardStopId, f.boardStopName, f.boardArsId,
                 f.destStopId,  f.destStopName,  f.destArsId,
                 f.routeName,
-                /* 초기 즐겨찾기 상태 */ true, f.id
+                /* 초기 즐겨찾기 상태 */ true, f.id,
+                /* 노선유형(폴백 반영) */
+                (f.busRouteType != null ? f.busRouteType : lastKnownBusRouteType),
+                (!TextUtils.isEmpty(f.routeTypeName) ? f.routeTypeName : lastKnownRouteTypeLabel)
         );
 
         // onClickFavoriteItem(...) 내부 리스너 교체 부분
@@ -1947,7 +1987,10 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 item.getBoardStopId(), item.getBoardStopName(), item.getBoardArsId(),
                 item.getDestStopId(),  item.getDestStopName(),  item.getDestArsId(),
                 item.getRouteName(),
-                /* 초기 즐겨찾기 상태 */ isFavorite, matchedFavIdFinal
+                /* 초기 즐겨찾기 상태 */ isFavorite, matchedFavIdFinal,
+                /* ★ 노선유형 전달 (캐시 폴백 포함) */
+                (item.getBusRouteType() != null ? item.getBusRouteType() : lastKnownBusRouteType),
+                (!TextUtils.isEmpty(item.getRouteTypeName()) ? item.getRouteTypeName() : lastKnownRouteTypeLabel)
         );
 
         dialog.setOnActionListener(new ReserveCardDialogFragment.OnActionListener() {

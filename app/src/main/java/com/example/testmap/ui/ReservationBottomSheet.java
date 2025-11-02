@@ -179,6 +179,21 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
         tvOutStation.setText(ui_destName);
         applyStarIcon(isFavorite);
 
+        // ==== 버스 아이콘 색상 적용 (노선유형별) ====
+        ImageView busIconBottom = v.findViewById(R.id.imgBusIconbottom);
+        if (busIconBottom != null) {
+            // 단색(or body 레이어) 아이콘 보장
+            busIconBottom.setImageResource(R.drawable.vector);
+
+            // 로컬 매핑으로 실제 색 계산(@ColorInt)
+            int color = localBusColorInt(api_routeTypeCode, api_routeTypeName);
+
+            // 틴트 적용
+            ImageViewCompat.setImageTintList(busIconBottom, ColorStateList.valueOf(color));
+            // 필요시 모드 지정 (대부분 기본값으로 충분)
+            // ImageViewCompat.setImageTintMode(busIconBottom, PorterDuff.Mode.SRC_IN);
+        }
+
         if (btnFavorite != null) {
             btnFavorite.setOnClickListener(v1 -> {
                 if (busy) return;
@@ -300,6 +315,34 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
     }
 
     // ===== 유틸 / 공통 네트워크 처리 =====
+
+    // 노선유형 → 실제 색값(@ColorInt) 로컬 매핑
+    private int localBusColorInt(@Nullable Integer code, @Nullable String name) {
+        if (code != null) {
+            switch (code) {
+                case 3: return Color.parseColor("#2B7DE9"); // 간선(파랑)
+                case 4: return Color.parseColor("#42A05B"); // 지선(초록)
+                case 6: return Color.parseColor("#D2473B"); // 광역(빨강)
+                case 5: return Color.parseColor("#E3B021"); // 순환(노랑)
+                case 2: return Color.parseColor("#42A05B"); // 마을=초록 취급
+                case 8: return Color.parseColor("#42A05B"); // 경기=초록 취급(필요시 분리)
+                case 1: return Color.parseColor("#7E57C2"); // 공항(예시)
+                default: return Color.parseColor("#42A05B"); // 기본 초록
+            }
+        }
+        if (!TextUtils.isEmpty(name)) {
+            switch (name.trim()) {
+                case "간선": return Color.parseColor("#2B7DE9");
+                case "지선": return Color.parseColor("#42A05B");
+                case "광역": return Color.parseColor("#D2473B");
+                case "순환": return Color.parseColor("#E3B021");
+                case "마을": return Color.parseColor("#42A05B");
+                case "경기": return Color.parseColor("#42A05B");
+                case "공항": return Color.parseColor("#7E57C2");
+            }
+        }
+        return Color.parseColor("#42A05B");
+    }
 
     private void deleteFavorite(String bearer, long id, Runnable onOk) {
         ApiClient.get().deleteFavorite(bearer, id)

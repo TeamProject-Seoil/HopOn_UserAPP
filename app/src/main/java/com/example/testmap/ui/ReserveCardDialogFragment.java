@@ -2,7 +2,9 @@ package com.example.testmap.ui;
 
 import android.app.Dialog;
 import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -14,14 +16,18 @@ import android.view.WindowManager;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.TooltipCompat;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.core.widget.ImageViewCompat;
 import androidx.fragment.app.DialogFragment;
 
 import android.content.res.ColorStateList;
+import android.widget.ImageView;
 
 import com.example.testmap.R;
 import com.example.testmap.service.ApiClient;
 import com.example.testmap.service.ApiService;
+import com.example.testmap.util.BusColors;
 import com.example.testmap.util.TokenStore;
 
 import java.util.List;
@@ -152,6 +158,7 @@ public class ReserveCardDialogFragment extends DialogFragment {
         Bundle args = getArguments() != null ? getArguments() : new Bundle();
 
         // ===== 표시 데이터 바인딩 =====
+        ImageView busIcon = v.findViewById(R.id.imgBusIcon);
         String busNo = args.getString(ARG_BUS_NO, "");
         String dir   = args.getString(ARG_DIR,    "");
         String from  = args.getString(ARG_FROM,   "");
@@ -184,6 +191,19 @@ public class ReserveCardDialogFragment extends DialogFragment {
             } else {
                 outArsTv.setVisibility(View.GONE);
             }
+        }
+
+        // ===== 아이콘 색상 적용 (노선유형별) =====
+        if (busIcon != null) {
+            Integer typeCodeArg = getArguments().containsKey(ARG_ROUTE_TYPE_CODE)
+                    ? (Integer) getArguments().get(ARG_ROUTE_TYPE_CODE) : null;
+            String  typeNameArg = getArguments().getString(ARG_ROUTE_TYPE_NAME, null);
+
+            int color = localBusColorInt(typeCodeArg, typeNameArg); // ← 여기!
+
+            busIcon.setImageResource(R.drawable.vector); // 단색/레이어 버스 아이콘
+            tintBusIcon(busIcon, color);                // 이미 클래스에 있는 유틸
+            // 또는: ImageViewCompat.setImageTintList(busIcon, ColorStateList.valueOf(color));
         }
 
         // 체크박스 상호배타
@@ -226,7 +246,6 @@ public class ReserveCardDialogFragment extends DialogFragment {
             }
 
             if (!hasAllParams) {
-                // 필수 값 없으면 UI만 토글
                 isFav[0] = !isFav[0];
                 applyStar(star, isFav[0]);
                 android.widget.Toast.makeText(requireContext(), "즐겨찾기 정보가 부족해 서버 동기화 없이 표시만 바꿔요.", android.widget.Toast.LENGTH_SHORT).show();
@@ -234,7 +253,6 @@ public class ReserveCardDialogFragment extends DialogFragment {
             }
 
             if (isFav[0]) {
-                // ===== 삭제 =====
                 if (favId[0] <= 0) {
                     resolveFavoriteIdThen(bearer, args, id -> {
                         if (id == null) {
@@ -258,13 +276,11 @@ public class ReserveCardDialogFragment extends DialogFragment {
                     });
                 }
             } else {
-                // ===== 추가 =====
                 Integer typeCode = args.containsKey(ARG_ROUTE_TYPE_CODE) ? args.getInt(ARG_ROUTE_TYPE_CODE) : null;
                 String  typeName = args.getString(ARG_ROUTE_TYPE_NAME, null);
 
                 ApiService.FavoriteCreateRequest body;
                 if (typeCode != null || !TextUtils.isEmpty(typeName)) {
-                    // 노선유형 포함 생성자(있다면 사용)
                     body = new ApiService.FavoriteCreateRequest(
                             args.getString(ARG_ROUTE_ID),
                             args.getString(ARG_DIRECTION),
@@ -279,7 +295,6 @@ public class ReserveCardDialogFragment extends DialogFragment {
                             typeName
                     );
                 } else {
-                    // 폴백: 기존 생성자
                     body = new ApiService.FavoriteCreateRequest(
                             args.getString(ARG_ROUTE_ID),
                             args.getString(ARG_DIRECTION),
@@ -339,6 +354,102 @@ public class ReserveCardDialogFragment extends DialogFragment {
     }
 
     // ▼ 유틸
+    // ReserveCardDialogFragment 안에 추가
+    private int localBusColorInt(@Nullable Integer code, @Nullable String name) {
+        // 코드 우선 → 없으면 한글 라벨로
+        if (code != null) {
+            switch (code) {
+                case 3: return Color.parseColor("#2B7DE9"); // 간선(파랑)
+                case 4: return Color.parseColor("#42A05B"); // 지선(초록)
+                case 6: return Color.parseColor("#D2473B"); // 광역(빨강)
+                case 5: return Color.parseColor("#E3B021"); // 순환(노랑)
+                case 2: return Color.parseColor("#42A05B"); // 마을=초록 취급
+                case 8: return Color.parseColor("#42A05B"); // 경기=초록 취급(필요시 분리)
+                case 1: return Color.parseColor("#7E57C2"); // 공항(예시 보라)
+                default: return Color.parseColor("#42A05B"); // 기본 초록
+            }
+        }
+        if (!TextUtils.isEmpty(name)) {
+            String label = name.trim();
+            switch (label) {
+                case "간선": return Color.parseColor("#2B7DE9");
+                case "지선": return Color.parseColor("#42A05B");
+                case "광역": return Color.parseColor("#D2473B");
+                case "순환": return Color.parseColor("#E3B021");
+                case "마을": return Color.parseColor("#42A05B");
+                case "경기": return Color.parseColor("#42A05B");
+                case "공항": return Color.parseColor("#7E57C2");
+            }
+        }
+        return Color.parseColor("#42A05B");
+    }
+
+
+    /** @ColorRes / @ColorInt를 모두 안전하게 처리 */
+    private int resolveBusColor(@Nullable String label) {
+        int c = com.example.testmap.util.BusColors.forRouteType(label);
+        try {
+            return ContextCompat.getColor(requireContext(), c);
+        } catch (Exception ignored) {
+            return c;
+        }
+    }
+
+    /** 어떤 종류의 드로어블이 와도 색을 강제로 반영 */
+    /** 어떤 종류의 드로어블이 와도 색을 강제로 반영 (LayerDrawable/Vector 대응) */
+    private void tintBusIcon(@NonNull ImageView view, int color) {
+        Drawable d = view.getDrawable();
+        if (d == null) { // 아직 드로어블이 없으면 1차 폴백
+            view.setColorFilter(color, PorterDuff.Mode.SRC_IN);
+            return;
+        }
+        try {
+            Drawable m = d.mutate();
+
+            if (m instanceof android.graphics.drawable.LayerDrawable) {
+                android.graphics.drawable.LayerDrawable ld = (android.graphics.drawable.LayerDrawable) m;
+
+                // 레이어 중 "버스 몸통" 레이어가 있으면 그 레이어만 칠함
+                // (ic_xxx.xml에서 android:id="@+id/bus_body" 로 지정되어 있어야 함)
+                Drawable body = ld.findDrawableByLayerId(R.id.bus_body);
+                if (body != null) {
+                    body = DrawableCompat.wrap(body.mutate());
+                    DrawableCompat.setTint(body, color);
+                    DrawableCompat.setTintMode(body, PorterDuff.Mode.SRC_IN);
+                } else {
+                    // 없으면 전체에 틴트(폴백)
+                    Drawable wrapped = DrawableCompat.wrap(m);
+                    DrawableCompat.setTint(wrapped, color);
+                    DrawableCompat.setTintMode(wrapped, PorterDuff.Mode.SRC_IN);
+                }
+                view.setImageDrawable(ld);
+
+            } else {
+                // 벡터/비트맵 등 단일 드로어블
+                Drawable wrapped = DrawableCompat.wrap(m);
+                DrawableCompat.setTint(wrapped, color);
+                DrawableCompat.setTintMode(wrapped, PorterDuff.Mode.SRC_IN);
+                view.setImageDrawable(wrapped);
+            }
+        } catch (Throwable ignore) {
+            // 최종 폴백
+            view.setColorFilter(color, PorterDuff.Mode.SRC_IN);
+        }
+
+        // 배경에도 아이콘이 들어있는 레이아웃을 대비(옵션)
+        Drawable bg = view.getBackground();
+        if (bg != null) {
+            try {
+                Drawable bgWrap = DrawableCompat.wrap(bg.mutate());
+                DrawableCompat.setTint(bgWrap, color);
+                DrawableCompat.setTintMode(bgWrap, PorterDuff.Mode.SRC_IN);
+                view.setBackground(bgWrap);
+            } catch (Throwable ignored) {
+                bg.setColorFilter(color, PorterDuff.Mode.SRC_IN);
+            }
+        }
+    }
+
 
     private void clearPressedRecursive(View root) {
         root.setPressed(false);

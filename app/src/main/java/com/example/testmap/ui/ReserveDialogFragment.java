@@ -11,11 +11,13 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.TooltipCompat;
+import androidx.core.content.ContextCompat;
 import androidx.core.widget.ImageViewCompat;
 import androidx.fragment.app.DialogFragment;
 
@@ -24,6 +26,7 @@ import android.content.res.ColorStateList;
 import com.example.testmap.R;
 import com.example.testmap.service.ApiClient;
 import com.example.testmap.service.ApiService;
+import com.example.testmap.util.BusColors;
 import com.example.testmap.util.TokenStore;
 
 import java.util.List;
@@ -141,6 +144,7 @@ public class ReserveDialogFragment extends DialogFragment {
 
         Bundle args = getArguments() != null ? getArguments() : new Bundle();
 
+        ImageView icon = root.findViewById(R.id.imgBusIcon);
         String departureName = args.getString(ARG_DEPARTURE_NAME, "출발역");
         String arrivalName   = args.getString(ARG_ARRIVAL_NAME,   "도착역");
         String routeName     = args.getString(ARG_ROUTE_NAME,     "버스");
@@ -191,6 +195,23 @@ public class ReserveDialogFragment extends DialogFragment {
             } else tvOutArs.setVisibility(View.GONE);
         }
 
+
+        if (icon != null) {
+            // 1) 코드/라벨 중 있는 값 사용
+            Integer typeCodeArg = args.containsKey(ARG_ROUTE_TYPE_CODE) ? args.getInt(ARG_ROUTE_TYPE_CODE) : null;
+            String  typeNameArg = args.getString(ARG_ROUTE_TYPE_NAME, null);
+
+            // 2) 최종 라벨/코드 구하기 (둘 중 하나만 있어도 동작)
+            //    - 이름만 있으면 그 이름으로
+            //    - 코드만 있으면 코드 -> 라벨 변환
+            String routeTypeLabel = !TextUtils.isEmpty(typeNameArg)
+                    ? typeNameArg
+                    : toRouteTypeLabel(typeCodeArg); // BusRouteActivity와 동일 헬퍼 그대로 사용 가능
+
+            // 3) 색상 얻어서 틴트 적용
+            int color = ContextCompat.getColor(requireContext(), BusColors.forRouteType(routeTypeLabel));
+            ImageViewCompat.setImageTintList(icon, ColorStateList.valueOf(color));
+        }
 
         // 한 번에 하나만 체크
         cbBoarding.setOnCheckedChangeListener((b, checked) -> { if (checked) cbDropOff.setChecked(false); });
@@ -362,6 +383,22 @@ public class ReserveDialogFragment extends DialogFragment {
             w.setLayout(width, WindowManager.LayoutParams.WRAP_CONTENT);
         }
         return dlg;
+    }
+
+    private String toRouteTypeLabel(@Nullable Integer code) {
+        if (code == null) return "공용";
+        switch (code) {
+            case 1: return "공항";
+            case 2: return "마을";
+            case 3: return "간선";
+            case 4: return "지선";
+            case 5: return "순환";
+            case 6: return "광역";
+            case 7: return "인천";
+            case 8: return "경기";
+            case 9: return "폐지";
+            default: return "공용";
+        }
     }
 
     @Override public void onStart() {
