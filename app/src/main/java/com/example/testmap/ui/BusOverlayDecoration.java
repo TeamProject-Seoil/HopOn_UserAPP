@@ -1,15 +1,18 @@
-// com/example/testmap/ui/BusOverlayDecoration.java
+
 package com.example.testmap.ui;
 
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.util.Log;
 import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.example.testmap.R;
@@ -18,9 +21,6 @@ import com.example.testmap.adapter.BusRouteAdapter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-// BusOverlayDecoration.java
-// BusOverlayDecoration.java (핵심 onDrawOver 교체/추가)
 
 public class BusOverlayDecoration extends RecyclerView.ItemDecoration {
 
@@ -50,7 +50,7 @@ public class BusOverlayDecoration extends RecyclerView.ItemDecoration {
         radius = dp(ctx,10); padH = dp(ctx,8); padV = dp(ctx,5);
         gapX = dp(ctx,10); lineSpacing = dp(ctx,2);
 
-        busDot = ContextCompat.getDrawable(ctx, R.drawable.ic_buslocation);
+        busDot = ContextCompat.getDrawable(ctx, R.drawable.busictest);
 
         boxPaint = new Paint(Paint.ANTI_ALIAS_FLAG); boxPaint.setColor(Color.WHITE);
         shadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -79,6 +79,20 @@ public class BusOverlayDecoration extends RecyclerView.ItemDecoration {
         dividerH = dp(ctx, 1f);
     }
 
+    private static Drawable tintFor(@NonNull Drawable src, int color) {
+        // 알파가 0이면 보이지 않으므로 보정
+        if ((color >>> 24) == 0) color = (0xFF000000 | (color & 0x00FFFFFF));
+
+        Drawable d = (src.getConstantState() != null
+                ? src.getConstantState().newDrawable()
+                : src).mutate();
+
+        d = DrawableCompat.wrap(d).mutate();
+        DrawableCompat.setTint(d, color);
+        DrawableCompat.setTintMode(d, PorterDuff.Mode.SRC_IN);
+        return d;
+    }
+
     @Override
     public void onDrawOver(@NonNull Canvas c, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
         // 레이아웃 매니저 확보
@@ -91,6 +105,8 @@ public class BusOverlayDecoration extends RecyclerView.ItemDecoration {
 
         // 같은 구간 겹침 약간씩 아래로
         Map<Integer, Integer> stack = new HashMap<>();
+
+        int timelineColor = adapter.getTimelineColor();
 
         for (BusRouteAdapter.BusMark m : marks) {
             Integer pos = adapter.findPosBySeq(m.nextSeq);
@@ -112,11 +128,14 @@ public class BusOverlayDecoration extends RecyclerView.ItemDecoration {
                     ? child.getLeft() + timeline.getLeft() + (timeline.getWidth() / 2f)
                     : child.getLeft() + dp(parent.getContext(), 40) + dp(parent.getContext(), 14);
 
-            // 1) 아이콘
+            //아이콘
             int l = (int) (lineCx - iconSize / 2f);
             int t = (int) (y - iconSize / 2f);
-            busDot.setBounds(l, t, (int) (l + iconSize), (int) (t + iconSize));
-            busDot.draw(c);
+
+            Drawable tinted = tintFor(busDot, timelineColor);
+            tinted.setBounds(l, t, (int) (l + iconSize), (int) (t + iconSize));
+            tinted.draw(c);
+
 
             // 2) 말풍선 박스/텍스트 (기존 로직 그대로)
             String num = m.number == null ? "" : m.number;

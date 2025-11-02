@@ -1,5 +1,6 @@
 package com.example.testmap.adapter;
 
+import android.content.res.ColorStateList;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
@@ -9,6 +10,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.core.widget.ImageViewCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import com.example.testmap.R;
 import com.example.testmap.dto.BusRouteDto;
@@ -140,7 +142,7 @@ public class BusRouteAdapter extends RecyclerView.Adapter<BusRouteAdapter.VH> {
     static class VH extends RecyclerView.ViewHolder {
         TextView name, ars;
         View line;            // 타임라인 뷰(id: R.id.line)  ⬅ 데코에서 중심 x 계산에 사용 가능
-        ImageView dot, myLoc;
+        ImageView dot, myLoc, busMark;
         VH(@NonNull View v) {
             super(v);
             name = v.findViewById(R.id.tvStopName);
@@ -148,6 +150,7 @@ public class BusRouteAdapter extends RecyclerView.Adapter<BusRouteAdapter.VH> {
             line = v.findViewById(R.id.line);
             dot  = v.findViewById(R.id.dot);
             myLoc   = v.findViewById(R.id.ivMyLocation); // ⬅ 추가
+            busMark= v.findViewById(R.id.busMark);
         }
     }
 
@@ -208,6 +211,10 @@ public class BusRouteAdapter extends RecyclerView.Adapter<BusRouteAdapter.VH> {
 
     private float dp(@NonNull View v, float dp) {
         return dp * v.getResources().getDisplayMetrics().density;
+    }
+
+    public int getTimelineColor() {
+        return timelineColor;
     }
 
 }
