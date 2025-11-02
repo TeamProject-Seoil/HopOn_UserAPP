@@ -10,6 +10,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -31,6 +32,7 @@ import com.example.testmap.ui.ReserveDialogFragment;
 import com.example.testmap.ui.UiDialogs;
 import com.example.testmap.util.BusColors;
 import com.example.testmap.util.TokenStore;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -151,6 +153,42 @@ public class BusRouteActivity extends AppCompatActivity {
         underline.setBackgroundColor(ContextCompat.getColor(this, BusColors.forRouteType(routeType)));
     }
 
+    private void showSwitchDirectionDialog(@NonNull String targetDir, @Nullable Runnable onSwitched) {
+        View content = getLayoutInflater().inflate(R.layout.dialog_switch_direction, null, false);
+
+        // 아이콘 틴트: 노선 컬러로 통일
+        int tint = ContextCompat.getColor(this, BusColors.forRouteType(routeType));
+        ImageView icon = content.findViewById(R.id.icon);
+        if (icon != null) icon.setColorFilter(tint, PorterDuff.Mode.SRC_IN);
+
+        TextView title = content.findViewById(R.id.title);
+        TextView msg   = content.findViewById(R.id.message);
+        if (title != null) title.setText("방면 전환이 필요해요");
+        if (msg != null)   msg.setText(targetDir + " 방면으로 전환할까요?");
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(this)
+                .setView(content)
+                .create();
+
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(
+                    ContextCompat.getDrawable(this, R.drawable.bg_white_card)
+            );
+        }
+
+        content.findViewById(R.id.btnCancel).setOnClickListener(v -> dialog.dismiss());
+        content.findViewById(R.id.btnSwitch).setOnClickListener(v -> {
+            dialog.dismiss();
+            switchDirection(targetDir);
+            Toast.makeText(this, "방면을 전환했어요. 다시 도착 정류장을 선택하세요.", Toast.LENGTH_SHORT).show();
+            if (onSwitched != null) onSwitched.run();
+        });
+
+        if (routeDialog != null && routeDialog.isShowing()) routeDialog.dismiss();
+        routeDialog = dialog;
+        dialog.show();
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -245,14 +283,7 @@ public class BusRouteActivity extends AppCompatActivity {
             if (dep == null) {
                 String opp = oppositeDirOf(currentDir);
                 if (findByArsInDir(departureArs, opp) != null) {
-                    new AlertDialog.Builder(this)
-                            .setMessage("출발역이 현재 방면에 없습니다.\n" + opp + " 방면으로 전환할까요?")
-                            .setPositiveButton("전환", (d, w) -> {
-                                switchDirection(opp);
-                                Toast.makeText(this, "방면을 전환했어요. 다시 도착 정류장을 선택하세요.", Toast.LENGTH_SHORT).show();
-                            })
-                            .setNegativeButton("취소", null)
-                            .show();
+                    showSwitchDirectionDialog(opp, null);
                 } else {
                     Toast.makeText(this, "출발역이 이 노선의 유효 정류장이 아닙니다.", Toast.LENGTH_SHORT).show();
                 }
@@ -271,14 +302,7 @@ public class BusRouteActivity extends AppCompatActivity {
                 BusRouteDto depInOpp = findByArsInDir(departureArs, opp);
                 BusRouteDto arrInOpp = findByArsInDir(arr.arsId, opp);
                 if (depInOpp != null && arrInOpp != null) {
-                    new AlertDialog.Builder(this)
-                            .setMessage("현재 방면 기준 역방향입니다.\n" + opp + " 방면으로 전환할까요?")
-                            .setPositiveButton("전환", (d, w) -> {
-                                switchDirection(opp);
-                                Toast.makeText(this, "방면을 전환했어요. 다시 도착 정류장을 선택하세요.", Toast.LENGTH_SHORT).show();
-                            })
-                            .setNegativeButton("취소", null)
-                            .show();
+                    showSwitchDirectionDialog(opp, null);
                 } else {
                     Toast.makeText(this, "진행방향이 맞지 않습니다. 반대 방면을 확인하세요.", Toast.LENGTH_SHORT).show();
                 }
