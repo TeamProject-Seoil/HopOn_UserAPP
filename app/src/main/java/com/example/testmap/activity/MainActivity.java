@@ -60,6 +60,7 @@ import com.example.testmap.model.RecentItem;
 import com.example.testmap.service.ApiClient;
 import com.example.testmap.service.ApiService;
 import com.example.testmap.ui.ArrivalsBottomSheet;
+import com.example.testmap.ui.BoardingAlightConfirmDialogFragment;
 import com.example.testmap.ui.ReserveCardDialogFragment;
 import com.example.testmap.ui.LoginRequiredDialogFragment;
 import com.example.testmap.ui.UiDialogs;
@@ -190,6 +191,23 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     // 중복 fetch 방지 플래그
     private boolean isFetchingFavs = false;
+
+    private boolean currentDelayedFlag = false; // 현재 예약의 지연 상태 캐시
+
+    private void applyDelayBadge(boolean delayed) {
+        currentDelayedFlag = delayed;
+        if (bottomSheet == null) return;
+        TextView delayBadge = bottomSheet.findViewById(R.id.tvDelayBadge);
+        if (delayBadge != null) {
+            delayBadge.setVisibility(delayed ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    // ===== 예약 관련 상태 =====
+
+    // ★ 다이얼로그 중복 방지용 캐시
+    @Nullable private Long lastDialogReservationId = null;
+    @Nullable private String lastDialogStage = null;
     // 공통 키 생성
     /** 즐겨찾기 고유키(노선/방향/승차/하차 조합) */
     private String favKey(@Nullable String routeId, @Nullable String direction,
@@ -989,6 +1007,14 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         driverMarker.setPosition(pos);
         if (driverMarker.getMap() == null) driverMarker.setMap(naverMap);
 
+        // ★ 여기서 지연 뱃지 갱신 (활성 예약 바텀시트)
+        if (bottomSheet != null) {
+            TextView delayBadge = bottomSheet.findViewById(R.id.tvDelayBadge);
+            if (delayBadge != null) {
+                delayBadge.setVisibility(currentDelayedFlag ? View.VISIBLE : View.GONE);
+            }
+        }
+
         if (!driverCenteredOnce) {
             naverMap.moveCamera(CameraUpdate.scrollTo(pos));
             driverCenteredOnce = true;
@@ -1078,10 +1104,25 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         updateReservationSheetVisibility(false, false);
                         return;
                     }
+
+                    if (bottomSheet != null) {
+                        TextView delayBadge = bottomSheet.findViewById(R.id.tvDelayBadge);
+                        if (delayBadge != null) {
+                            boolean delayed = (r.delayed != null && r.delayed);
+                            delayBadge.setVisibility(delayed ? View.VISIBLE : View.GONE);
+                        }
+                    }
+                    android.util.Log.d("ACTIVE_RES", "delayed from server = " + r.delayed);
+                    boolean delayed = (r.delayed != null && r.delayed);
+                    applyDelayBadge(delayed);
+
                     bindReservationDataToSheet(r);
                     dismissArrivalsSheetIfShown();
                     enforceMainUiState();
                     updateReservationSheetVisibility(true, true);
+
+                    // ★ 여기서 승차/하차 확인 다이얼로그 필요하면 띄움
+                    maybeShowBoardingOrAlightDialog(r);
 
                     // ★ 활성 예약 바인딩 직후, 추적 시작(이중 안전)
                     startDriverTrackingForReservation(r);
@@ -1495,6 +1536,168 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     }
 
+    // 현재 활성 예약(boundReservation / currentReservationId 기준) 승차 확인
+    private void showBoardingConfirmDialog(@NonNull ReservationResponse r) {
+        if (currentReservationId == null) return;
+
+        BoardingAlightConfirmDialogFragment f =
+                BoardingAlightConfirmDialogFragment.newInstance(
+                        BoardingAlightConfirmDialogFragment.Mode.BOARDING,
+                        TextUtils.isEmpty(r.routeName) ? r.routeId : r.routeName,
+                        r.boardStopName
+                );
+
+        f.setListener(new BoardingAlightConfirmDialogFragment.Listener() {
+            @Override public void onConfirmed() {
+                String access = TokenStore.getAccess(getApplicationContext());
+                if (TextUtils.isEmpty(access)) return;
+                String bearer = "Bearer " + access;
+
+                ApiClient.get().confirmBoarding(bearer, currentReservationId)
+                        .enqueue(new retrofit2.Callback<ReservationResponse>() {
+                            @Override public void onResponse(Call<ReservationResponse> call,
+                                                             Response<ReservationResponse> res) {
+                                if (res.isSuccessful() && res.body()!=null) {
+                                    Toast.makeText(MainActivity.this, "탑승이 확인되었습니다.", Toast.LENGTH_SHORT).show();
+                                    // 서버에서 boardingStage/ status 업데이트된 값 다시 바인딩
+                                    fetchAndShowActiveReservation();
+                                }
+                            }
+                            @Override public void onFailure(Call<ReservationResponse> call, Throwable t) { }
+                        });
+            }
+
+            @Override public void onTimeout() {
+                // 20초 안에 확인을 안 눌렀을 때: 예약 취소 (NOSHOW → CANCELLED)
+                String access = TokenStore.getAccess(getApplicationContext());
+                if (TextUtils.isEmpty(access)) return;
+                String bearer = "Bearer " + access;
+
+                ApiClient.get().cancelReservationById(bearer, currentReservationId)
+                        .enqueue(new retrofit2.Callback<CancelResult>() {
+                            @Override public void onResponse(Call<CancelResult> call,
+                                                             Response<CancelResult> res) {
+                                Toast.makeText(MainActivity.this, "시간 초과로 예약이 취소되었습니다.", Toast.LENGTH_SHORT).show();
+                                fetchAndShowActiveReservation();
+                            }
+                            @Override public void onFailure(Call<CancelResult> call, Throwable t) { }
+                        });
+            }
+
+            @Override public void onCancelled() {
+                // 사용자가 "나중에"를 누른 경우 → 아무 것도 안 하거나, 알림만
+                Toast.makeText(MainActivity.this, "나중에 다시 확인할 수 있어요.", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        f.show(getSupportFragmentManager(), "boarding_confirm");
+    }
+
+    private void showAlightingConfirmDialog(@NonNull ReservationResponse r) {
+        if (currentReservationId == null) return;
+
+        BoardingAlightConfirmDialogFragment f =
+                BoardingAlightConfirmDialogFragment.newInstance(
+                        BoardingAlightConfirmDialogFragment.Mode.ALIGHTING,
+                        TextUtils.isEmpty(r.routeName) ? r.routeId : r.routeName,
+                        r.destStopName
+                );
+
+        f.setListener(new BoardingAlightConfirmDialogFragment.Listener() {
+            @Override public void onConfirmed() {
+                String access = TokenStore.getAccess(getApplicationContext());
+                if (TextUtils.isEmpty(access)) return;
+                String bearer = "Bearer " + access;
+
+                ApiClient.get().confirmAlighting(bearer, currentReservationId)
+                        .enqueue(new retrofit2.Callback<ReservationResponse>() {
+                            @Override public void onResponse(Call<ReservationResponse> call,
+                                                             Response<ReservationResponse> res) {
+                                if (res.isSuccessful() && res.body()!=null) {
+                                    Toast.makeText(MainActivity.this, "하차가 확인되었습니다.", Toast.LENGTH_SHORT).show();
+                                    // status = COMPLETED, boardingStage = ALIGHTED 상태를 다시 반영
+                                    fetchAndShowActiveReservation();
+                                }
+                            }
+                            @Override public void onFailure(Call<ReservationResponse> call, Throwable t) { }
+                        });
+            }
+
+            @Override public void onTimeout() {
+                // 하차 쪽은 20초 안에 클릭 안 해도 자동으로 ALIGHTED/COMPLETED 처리
+                String access = TokenStore.getAccess(getApplicationContext());
+                if (TextUtils.isEmpty(access)) return;
+                String bearer = "Bearer " + access;
+
+                ApiClient.get().confirmAlighting(bearer, currentReservationId)
+                        .enqueue(new retrofit2.Callback<ReservationResponse>() {
+                            @Override public void onResponse(Call<ReservationResponse> call,
+                                                             Response<ReservationResponse> res) {
+                                // 사용자가 안 눌러도 같은 엔드포인트 호출해서 자동 완료
+                                fetchAndShowActiveReservation();
+                            }
+                            @Override public void onFailure(Call<ReservationResponse> call, Throwable t) { }
+                        });
+            }
+
+            @Override public void onCancelled() {
+                // "나중에" 누르면 일단 아무 처리 안 함. (원하면 자동완료 쪽으로 돌려도 됨)
+            }
+        });
+
+        f.show(getSupportFragmentManager(), "alighting_confirm");
+    }
+
+
+    /** 서버에서 내려온 boardingStage/status를 보고 승차/하차 확인 다이얼로그를 띄움 */
+    /** 서버 status / boardingStage를 보고 승차/하차 확인 다이얼로그를 띄움 */
+    private void maybeShowBoardingOrAlightDialog(@NonNull ReservationResponse r) {
+        android.util.Log.d("BOARDING_DIALOG",
+                "id=" + r.id +
+                        ", status=" + r.status +
+                        ", stage=" + r.boardingStage);
+        if (isFinishing() || isDestroyed()) return;
+
+        // ReservationResponse 안에 status / boardingStage 가 문자열로 내려온다고 가정
+        final String status = r.status;         // ex) "CONFIRMED" / "CANCELLED" / "COMPLETED"
+        final String stage  = r.boardingStage;  // ex) "NOSHOW"   / "BOARDED"   / "ALIGHTED"
+
+        if (TextUtils.isEmpty(status) || TextUtils.isEmpty(stage)) return;
+
+        // 진행 중이 아닐 때는 다이얼로그 안 띄움
+        if (!"CONFIRMED".equals(status)) return;
+
+        // 같은 예약 + 같은 boardingStage 에서는 반복해서 안 띄우기
+        if (lastDialogReservationId != null
+                && lastDialogReservationId.equals(r.id)
+                && TextUtils.equals(lastDialogStage, stage)) {
+            return;
+        }
+
+        switch (stage) {
+            case "NOSHOW":
+                // 아직 탑승 안 한 상태 → 승차 확인 다이얼로그
+                showBoardingConfirmDialog(r);
+                lastDialogReservationId = r.id;
+                lastDialogStage = stage;
+                break;
+
+            case "BOARDED":
+                // 탑승 완료 상태 → 하차 확인 다이얼로그 (도착 알림 상황에서 사용)
+                showAlightingConfirmDialog(r);
+                lastDialogReservationId = r.id;
+                lastDialogStage = stage;
+                break;
+
+            case "ALIGHTED":
+            default:
+                // 이미 하차까지 끝났거나, 그 외에는 다이얼로그 X
+                break;
+        }
+    }
+
+
+
     private void onClickCancel() {
         String access = TokenStore.getAccess(getApplicationContext());
         if (TextUtils.isEmpty(access)) {
@@ -1808,6 +2011,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         }
     }
+
 
     private void clearAllFavorites() {
         String access = TokenStore.getAccess(this);

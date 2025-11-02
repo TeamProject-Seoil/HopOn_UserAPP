@@ -182,16 +182,20 @@ public interface ApiService {
     // ======================= 예약 ============================
     // =========================================================
 
+    /** 예약 생성 (서버가 busRouteType / routeTypeName / boardingStage / delayed 같이 내려줌) */
     @POST("/api/reservations")
     Call<ReservationResponse> createReservation(@Header("Authorization") String bearer,
                                                 @Body ReservationCreateRequest body);
 
+    /** 활성 예약 1건 (없으면 204 또는 200 + null) */
     @GET("/api/reservations/active")
     Call<ReservationResponse> getActiveReservation(@Header("Authorization") String bearer);
 
+    /** 전체 예약 목록 */
     @GET("/api/reservations")
     Call<List<ReservationResponse>> getReservations(@Header("Authorization") String bearer);
 
+    /** 예약 취소 (CONFIRMED 상태만 가능) */
     @DELETE("/api/reservations/{id}")
     Call<CancelResult> cancelReservationById(@Header("Authorization") String bearer,
                                              @Path("id") Long id);
@@ -202,6 +206,16 @@ public interface ApiService {
             @Header("Authorization") String bearer,
             @Path("id") Long reservationId
     );
+
+    /** 출발 정류장 도착 시, 팝업에서 '탑승했어요' 눌렀을 때 호출 → boardingStage: BOARDED */
+    @POST("/api/reservations/{id}/board/confirm")
+    Call<ReservationResponse> confirmBoarding(@Header("Authorization") String bearer,
+                                              @Path("id") Long id);
+
+    /** 하차 정류장 도착 시, 팝업에서 '하차했어요' 눌렀을 때 호출 → boardingStage: ALIGHTED, status: COMPLETED */
+    @POST("/api/reservations/{id}/alight/confirm")
+    Call<ReservationResponse> confirmAlighting(@Header("Authorization") String bearer,
+                                               @Path("id") Long id);
 
     // =========================================================
     // ===================== 즐겨찾기 ==========================
@@ -385,4 +399,7 @@ public interface ApiService {
                                     @Part("secret") RequestBody secret,
                                     @Part("password") RequestBody password,
                                     @Part List<MultipartBody.Part> files);
+
+
+
 }

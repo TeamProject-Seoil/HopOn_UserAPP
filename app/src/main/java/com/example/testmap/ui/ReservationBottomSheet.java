@@ -46,8 +46,12 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
     private static final String ARG_ROUTE_TYPE_CODE = "route_type_code";
     private static final String ARG_ROUTE_TYPE_NAME = "route_type_name";
 
-    private ImageView btnFavorite; // 우선 btnFavoriteActive, 없으면 btnFavorite
+    // 지연 여부
+    private static final String ARG_DELAYED         = "delayed";
+
+    private ImageView btnFavorite;
     private TextView tvBusNumber, tvBusDirection, tvRidingStation, tvOutStation;
+    private TextView tvDelayBadge;
 
     private boolean isFavorite = false;
     private Long favoriteId = null;
@@ -56,12 +60,13 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
     public interface OnFavoriteChangedListener {
         void onFavoriteChanged(boolean nowFavorite, @Nullable Long newFavoriteId);
     }
+
     private OnFavoriteChangedListener onFavoriteChangedListener;
     public void setOnFavoriteChangedListener(OnFavoriteChangedListener l) {
         this.onFavoriteChangedListener = l;
     }
 
-    /** 기존(표시 위주) 팩토리 */
+    /** 기본 팩토리 (노선유형/지연 없음) */
     public static ReservationBottomSheet newInstance(
             String routeId,
             @Nullable String routeName,
@@ -92,7 +97,7 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
         return sheet;
     }
 
-    /** 확장: 노선유형 없이(13개 인자) */
+    /** 기존 확장: 노선유형 없이(13개 인자) */
     public static ReservationBottomSheet newInstanceFull(
             String routeId, @Nullable String routeName, @Nullable String direction,
             String boardStopId, @Nullable String boardStopName, @Nullable String boardArsId,
@@ -105,35 +110,46 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
                 isFavorite, favoriteId);
     }
 
-    /** 확장: 노선유형 포함(15개 인자) */
+    /** 확장: 노선유형 + 지연 여부 포함(15개 인자) */
     public static ReservationBottomSheet newInstanceFull(
             String routeId, @Nullable String routeName, @Nullable String direction,
             String boardStopId, @Nullable String boardStopName, @Nullable String boardArsId,
             String destStopId, @Nullable String destStopName, @Nullable String destArsId,
             boolean isFavorite, @Nullable Long favoriteId,
-            @Nullable Integer routeTypeCode, @Nullable String routeTypeName
+            @Nullable Integer routeTypeCode, @Nullable String routeTypeName,
+            boolean delayed
     ) {
+        // 1단계: 기본 데이터는 기존 팩토리로 세팅
         ReservationBottomSheet sheet = newInstance(
                 routeId, routeName, direction,
                 boardStopId, boardStopName, boardArsId,
                 destStopId, destStopName, destArsId,
                 isFavorite, favoriteId
         );
+
+        // 2단계: 추가 필드(routeType, delayed)는 Bundle에 직접 주입
         Bundle b = sheet.getArguments();
         if (b == null) b = new Bundle();
-        if (routeTypeCode != null) b.putInt(ARG_ROUTE_TYPE_CODE, routeTypeCode);
-        if (!TextUtils.isEmpty(routeTypeName)) b.putString(ARG_ROUTE_TYPE_NAME, routeTypeName);
+        if (routeTypeCode != null) {
+            b.putInt(ARG_ROUTE_TYPE_CODE, routeTypeCode);
+        }
+        if (!TextUtils.isEmpty(routeTypeName)) {
+            b.putString(ARG_ROUTE_TYPE_NAME, routeTypeName);
+        }
+        b.putBoolean(ARG_DELAYED, delayed);
         sheet.setArguments(b);
+
         return sheet;
     }
 
-    @Nullable @Override
+    @Nullable
+    @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.reservation_bottomsheet, container, false);
 
-        // ★ btnFavoriteActive 먼저, 없으면 btnFavorite로 폴백
+        // btnFavoriteActive 먼저, 없으면 btnFavorite로 폴백 (id 다르면 여기서 바꿔도 됨)
         btnFavorite = v.findViewById(R.id.btnFavoriteActive);
         if (btnFavorite == null) btnFavorite = v.findViewById(R.id.btnFavoriteActive);
 
@@ -141,6 +157,7 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
         tvBusDirection  = v.findViewById(R.id.tvBusDirection);
         tvRidingStation = v.findViewById(R.id.riging_station);
         tvOutStation    = v.findViewById(R.id.out_station);
+        tvDelayBadge    = v.findViewById(R.id.tvDelayBadge);
 
         View exit = v.findViewById(R.id.exit_button);
         if (exit != null) exit.setOnClickListener(view -> dismiss());
@@ -161,7 +178,8 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
         final String api_destArsId     = args.getString(ARG_DEST_ARS_ID);
 
         // ==== 유형 값(선택) ====
-        final Integer api_routeTypeCode = args.containsKey(ARG_ROUTE_TYPE_CODE) ? args.getInt(ARG_ROUTE_TYPE_CODE) : null;
+        final Integer api_routeTypeCode =
+                args.containsKey(ARG_ROUTE_TYPE_CODE) ? args.getInt(ARG_ROUTE_TYPE_CODE) : null;
         final String  api_routeTypeName = args.getString(ARG_ROUTE_TYPE_NAME, null);
 
         // ==== UI 표시용 ====
@@ -177,21 +195,21 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
         tvBusDirection.setText(ui_direction);
         tvRidingStation.setText(ui_boardName);
         tvOutStation.setText(ui_destName);
+
+        // ★ 지연 여부 인자 → 뱃지 표시
+        boolean delayed = args.getBoolean(ARG_DELAYED, false);
+        if (tvDelayBadge != null) {
+            tvDelayBadge.setVisibility(delayed ? View.VISIBLE : View.GONE);
+        }
+
         applyStarIcon(isFavorite);
 
         // ==== 버스 아이콘 색상 적용 (노선유형별) ====
         ImageView busIconBottom = v.findViewById(R.id.imgBusIconbottom);
         if (busIconBottom != null) {
-            // 단색(or body 레이어) 아이콘 보장
             busIconBottom.setImageResource(R.drawable.vector);
-
-            // 로컬 매핑으로 실제 색 계산(@ColorInt)
             int color = localBusColorInt(api_routeTypeCode, api_routeTypeName);
-
-            // 틴트 적용
             ImageViewCompat.setImageTintList(busIconBottom, ColorStateList.valueOf(color));
-            // 필요시 모드 지정 (대부분 기본값으로 충분)
-            // ImageViewCompat.setImageTintMode(busIconBottom, PorterDuff.Mode.SRC_IN);
         }
 
         if (btnFavorite != null) {
@@ -223,7 +241,6 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
                     // ===== 추가 =====
                     ApiService.FavoriteCreateRequest body;
                     if (api_routeTypeCode != null || !TextUtils.isEmpty(api_routeTypeName)) {
-                        // 유형 포함 생성자(있어야 함)
                         body = new ApiService.FavoriteCreateRequest(
                                 api_routeId, api_direction,
                                 api_boardStopId, api_boardStopName, api_boardArsId,
@@ -232,7 +249,6 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
                                 api_routeTypeCode, api_routeTypeName
                         );
                     } else {
-                        // 기존 생성자
                         body = new ApiService.FavoriteCreateRequest(
                                 api_routeId, api_direction,
                                 api_boardStopId, api_boardStopName, api_boardArsId,
@@ -255,7 +271,6 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
                                             if (onFavoriteChangedListener != null)
                                                 onFavoriteChangedListener.onFavoriteChanged(true, favoriteId);
                                         } else if (res.code() == 409) {
-                                            // 이미 존재 → ID 동기화
                                             resolveFavoriteIdThen(bearer, api_routeId, api_direction, api_boardStopId, api_destStopId, id -> {
                                                 isFavorite = true;
                                                 if (id != null) favoriteId = id;
@@ -318,7 +333,6 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
 
     // 노선유형 → 실제 색값(@ColorInt) 로컬 매핑
     private int localBusColorInt(@Nullable Integer code, @Nullable String name) {
-        // 코드 우선 → 없으면 한글 라벨로
         if (code != null) {
             switch (code) {
                 case 3: return Color.parseColor("#2B7DE9"); // 간선(파랑)
@@ -326,9 +340,9 @@ public class ReservationBottomSheet extends BottomSheetDialogFragment {
                 case 6: return Color.parseColor("#D2473B"); // 광역(빨강)
                 case 5: return Color.parseColor("#E3B021"); // 순환(노랑)
                 case 2: return Color.parseColor("#4CAF50"); // 마을=초록 취급
-                case 8: return Color.parseColor("#42A05B"); // 경기=초록 취급(필요시 분리)
+                case 8: return Color.parseColor("#42A05B"); // 경기=초록 취급
                 case 1: return Color.parseColor("#FF9800"); // 공항
-                default: return Color.parseColor("#42A05B"); // 기본 초록
+                default: return Color.parseColor("#42A05B");
             }
         }
         if (!TextUtils.isEmpty(name)) {

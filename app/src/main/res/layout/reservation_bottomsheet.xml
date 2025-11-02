@@ -38,7 +38,7 @@
             android:layout_marginEnd="8dp"
             android:src="@drawable/vector" />
 
-        <!-- 버스 번호와 방향 -->
+        <!-- 버스 번호와 방향 + 지연 뱃지 -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -54,16 +54,40 @@
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/tvBusDirection"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="방면 정보"
-                android:textColor="#444444"
-                android:textSize="14sp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvBusDirection"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="방면 정보"
+                    android:textColor="#444444"
+                    android:textSize="14sp" />
+
+                <!-- 지연 뱃지 -->
+                <TextView
+                    android:id="@+id/tvDelayBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp"
+                    android:background="@drawable/bg_delay_chip"
+                    android:text="지연"
+                    android:textColor="#B45309"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"/>
+            </LinearLayout>
         </LinearLayout>
 
-        <!-- 즐겨찾기 버튼 (스타일 통일) -->
+        <!-- 즐겨찾기 버튼 -->
         <ImageView
             android:id="@+id/btnFavoriteActive"
             android:layout_width="40dp"
@@ -74,8 +98,8 @@
             android:tooltipText="@string/favorite"
             android:src="@drawable/ic_star2"
             app:tint="#BDBDBD" />
-        <!-- 기본은 회색(#BDBDBD); 코드에서 선택 시 #FFC107로 틴트 변경 -->
     </LinearLayout>
+
 
     <!-- 승차 정보 -->
     <androidx.constraintlayout.widget.ConstraintLayout
