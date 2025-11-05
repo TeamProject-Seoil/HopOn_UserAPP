@@ -182,6 +182,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     // 원(위치 기준)
     @Nullable private CircleOverlay rangeCircle = null;
 
+    private boolean rangeCircleEnabled = true;
+
     //채널/상수(notify 알림)
     private static final String CHANNEL_ID_RESERVATION = "reservation_alerts";
 
@@ -495,11 +497,20 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     /** 위치 중심 원 생성/갱신 */
+    /** 위치 중심 원 생성/갱신 */
     private void updateRangeCircle(@NonNull LatLng center, double radiusMeters) {
         if (naverMap == null) return;
         if (center == null ||
                 Double.isNaN(center.latitude) || Double.isNaN(center.longitude)) {
             return; // 좌표가 유효하지 않으면 그리지 않음
+        }
+
+        // 🔐 탑승 중에는 원을 숨긴다
+        if (!rangeCircleEnabled) {
+            if (rangeCircle != null) {
+                rangeCircle.setMap(null);  // 지도에서 제거
+            }
+            return;
         }
 
         if (rangeCircle == null) {
@@ -517,6 +528,25 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             rangeCircle.setMap(naverMap); // ✅ center/radius 세팅 후에 붙이기
         }
     }
+
+    /** 반경 원 보이기/숨기기 토글 */
+    private void setRangeCircleVisible(boolean visible) {
+        rangeCircleEnabled = visible;
+
+        if (!visible) {
+            // 숨길 땐 지도에서 제거
+            if (rangeCircle != null) {
+                rangeCircle.setMap(null);
+            }
+        } else {
+            // 다시 보이게 할 땐, 마지막 위치 기준으로 한 번 그려줌
+            if (lastFix != null) {
+                updateRangeCircle(lastFix, RANGE_METERS);
+            }
+        }
+    }
+
+
 
     /** (옵션) 외부에서 반경만 바꾸고 싶을 때 호출 */
     public void setRangeRadius(double meters) {
@@ -717,7 +747,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 return true;
             });
         }
+
+        // ★ 활성 예약이 있으면 출발/도착 정류장만 남기고 나머지 숨기기
+        updateStationMarkersForReservation(hasActiveReservation ? boundReservation : null);
     }
+
 
     private static float distanceMeters(LatLng a, LatLng b) {
         if (a == null || b == null) return Float.MAX_VALUE;
@@ -1200,14 +1234,22 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                 if (resp.code() == 204) {
                     hasActiveReservation = false;
-                    boundReservation = null; // ★ 바인딩 해제
+                    boundReservation = null;
                     updateReservationSheetVisibility(true, false);
                     enforceMainUiState();
-                    stopDriverTracking();    // ★ 위치 추적도 중단
+                    stopDriverTracking();
+
+                    // ✅ 더 이상 운행 중이 아니므로, 반경 원 다시 표시 허용
+                    setRangeCircleVisible(true);
+
+                    // ★ 예약 없으므로 모든 정류장 마커 다시 보이기
+                    updateStationMarkersForReservation(null);
+
                     getSharedPreferences("app", MODE_PRIVATE)
                             .edit().putBoolean("ACTIVE_RES_PRESENT", false).apply();
                     return;
                 }
+
                 if (resp.code() == 401) {
                     TokenStore.clearAccess(getApplicationContext());
                     hasActiveReservation = false;
@@ -1222,6 +1264,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if (resp.isSuccessful() && resp.body() != null) {
                     ReservationResponse r = resp.body();
                     hasActiveReservation = true;
+
+                    setRangeCircleVisible(false);
+
                     if (TextUtils.isEmpty(TokenStore.getAccess(getApplicationContext()))) {
                         updateReservationSheetVisibility(false, false);
                         return;
@@ -1339,6 +1384,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         // 활성 예약 바인딩 직후, 추적 시작(이중 안전)
         startDriverTrackingForReservation(r);
+
+        // ★ 정류장 마커도 출발/도착만 남기도록 필터링
+        updateStationMarkersForReservation(r);
     }
 
     /** ReservationResponse/캐시값을 바탕으로 실제 @ColorInt 반환 */
@@ -1406,6 +1454,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
 
                 ReservationResponse body = resp.body();
+
+                setRangeCircleVisible(false);
+
                 getSharedPreferences("app", MODE_PRIVATE)
                         .edit().putBoolean("JUST_RESERVED", true).apply();
 
@@ -1733,6 +1784,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             public void onResponse(Call<Void> call, Response<Void> res) {
                                 if (res.isSuccessful()) {
                                     Toast.makeText(MainActivity.this, "하차가 확인되었습니다.", Toast.LENGTH_SHORT).show();
+                                    setRangeCircleVisible(true);
                                     clearPathOverlays();   // ★ 추가
                                     stopDriverTracking();  // ★ 추가
                                     fetchAndShowActiveReservation();
@@ -1753,6 +1805,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             @Override public void onResponse(Call<Void> call, Response<Void> res) {
                                 // 사용자가 안 눌러도 같은 엔드포인트 호출해서 자동 완료
                                 // ★ 경로/추적도 같이 종료
+                                setRangeCircleVisible(true);
                                 clearPathOverlays();
                                 stopDriverTracking();
                                 fetchAndShowActiveReservation();
@@ -2490,7 +2543,11 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         updateDrawerEmpty();
         clearPathOverlays();
         stopDriverTracking(); // ★ 추적 중단
+
+        // ★ 예약도 없으니 정류장 전체 다시 보이기
+        updateStationMarkersForReservation(null);
     }
+
 
     // ===== 공통 =====
     private void updateDrawerEmpty() {
@@ -2636,5 +2693,43 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         NotificationManagerCompat.from(this).notify(notifyId, nb.build());
     }
 
+    /**
+     * 활성 예약이 있을 때: 승차/하차 정류장만 남기고 나머지 정류장 마커 숨기기
+     * 활성 예약이 없을 때: 모든 정류장 마커 다시 보이기
+     */
+    private void updateStationMarkersForReservation(@Nullable ReservationResponse r) {
+        if (naverMap == null) return;
+
+        // 예약 없음 → 전체 정류장 다시 보이기
+        if (r == null) {
+            for (Marker m : stationMarkers) {
+                if (m.getMap() == null) {
+                    m.setMap(naverMap);
+                }
+            }
+            return;
+        }
+
+        String boardArsId = r.boardArsId;
+        String destArsId  = r.destArsId;
+
+        for (Marker m : stationMarkers) {
+            Object tag = m.getTag();
+            StationDto st = (tag instanceof StationDto) ? (StationDto) tag : null;
+
+            boolean isBoardStop = st != null && !TextUtils.isEmpty(boardArsId)
+                    && TextUtils.equals(st.arsId, boardArsId);
+            boolean isDestStop  = st != null && !TextUtils.isEmpty(destArsId)
+                    && TextUtils.equals(st.arsId, destArsId);
+
+            if (isBoardStop || isDestStop) {
+                // 승차/하차 정류장은 항상 보이게
+                if (m.getMap() == null) m.setMap(naverMap);
+            } else {
+                // 그 외 정류장은 숨기기
+                if (m.getMap() != null) m.setMap(null);
+            }
+        }
+    }
 
 }
