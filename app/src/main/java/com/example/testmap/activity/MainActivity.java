@@ -208,14 +208,36 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private boolean currentDelayedFlag = false; // 현재 예약의 지연 상태 캐시
 
+    private boolean lastDelayedNotified = false;
+
     private void applyDelayBadge(boolean delayed) {
+        // 1) 상태 캐시
+        boolean prev = currentDelayedFlag;
         currentDelayedFlag = delayed;
-        if (bottomSheet == null) return;
-        TextView delayBadge = bottomSheet.findViewById(R.id.tvDelayBadge);
-        if (delayBadge != null) {
-            delayBadge.setVisibility(delayed ? View.VISIBLE : View.GONE);
+
+        // 2) 바텀시트 뱃지
+        if (bottomSheet != null) {
+            TextView delayBadge = bottomSheet.findViewById(R.id.tvDelayBadge);
+            if (delayBadge != null) {
+                delayBadge.setVisibility(delayed ? View.VISIBLE : View.GONE);
+            }
+        }
+
+        // 3) 지연으로 "새로" 진입할 때 한 번만 알림
+        if (!prev && delayed && !lastDelayedNotified && currentReservationId != null) {
+            String title = "[지연 안내]";
+            String msg = "현재 예약하신 차량이 지연되고 있습니다.";
+
+            showReservationNotification(1101, title, msg);
+            lastDelayedNotified = true;
+        }
+
+        // 지연이 풀리면 플래그 리셋해서, 다음에 또 지연될 때 다시 알림 가능하게
+        if (!delayed) {
+            lastDelayedNotified = false;
         }
     }
+
 
     // ===== 예약 관련 상태 =====
 
@@ -1010,7 +1032,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         if (res.isSuccessful() && res.body() != null) {
                             ReservationResponse r = res.body();
                             boolean delayed = r.delayed != null && r.delayed;
-                            applyDelayBadge(delayed);
 
                             // 🔽 여기서 arrival-state까지 같이 조회
                             fetchArrivalStateAndMaybeShowDialogs(bearer, r);
@@ -1244,6 +1265,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                     // ★ 예약 없으므로 모든 정류장 마커 다시 보이기
                     updateStationMarkersForReservation(null);
+                    applyDelayBadge(false);
 
                     getSharedPreferences("app", MODE_PRIVATE)
                             .edit().putBoolean("ACTIVE_RES_PRESENT", false).apply();
@@ -2540,6 +2562,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         recentItems.clear();
         if (recentAdapter != null) recentAdapter.submitList(java.util.Collections.emptyList());
 
+        // 로그아웃 후 지연 상태/알림도 초기화
+        applyDelayBadge(false);
         updateDrawerEmpty();
         clearPathOverlays();
         stopDriverTracking(); // ★ 추적 중단
