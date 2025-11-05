@@ -399,6 +399,25 @@ public interface ApiService {
                                     @Part("password") RequestBody password,
                                     @Part List<MultipartBody.Part> files);
 
+    class ReservationArrivalState {
+        public Long reservationId;
+        public String currentStopId;
+        public String currentStopName;
+        public String nextStopId;
+        public String nextStopName;
+        public boolean atBoardStop;
+        public boolean atDestNext;
+        public boolean unknown;
+        /** 이번역이 승차역인가? (알림용) */
+        public boolean nearBoardStop;
+        /** 이번역이 하차역인가? (알림용) */
+        public boolean nearDestStop;
+    }
 
+    @GET("/api/reservations/{id}/arrival-state")
+    Call<ReservationArrivalState> getReservationArrivalState(
+            @Header("Authorization") String bearer,
+            @Path("id") Long id
+    );
 
 }

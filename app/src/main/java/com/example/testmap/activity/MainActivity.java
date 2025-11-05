@@ -2,6 +2,9 @@
 package com.example.testmap.activity;
 
 import android.Manifest;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -12,6 +15,7 @@ import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
 import android.location.LocationManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -34,6 +38,8 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.graphics.drawable.DrawableCompat;
@@ -176,10 +182,16 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
     // 원(위치 기준)
     @Nullable private CircleOverlay rangeCircle = null;
 
+    //채널/상수(notify 알림)
+    private static final String CHANNEL_ID_RESERVATION = "reservation_alerts";
+
     // 반경(m): 주변 정류장 탐색 반경과 동일하게 사용
     private static final int RANGE_METERS = RADIUS_M; // RADIUS_M = 1000 그대로 이용
     // 카메라 피팅 1회 제어
     private boolean cameraFittedOnce = false;
+
+    @Nullable private Long lastAlarmReservationIdBoard = null;
+    @Nullable private Long lastAlarmReservationIdDest  = null;
 
     // ★ 즐겨찾기에 보낼 "최근 관측 노선유형" 캐시
     @Nullable private String  lastKnownRouteTypeLabel = null; // "간선","지선","광역","순환",...
@@ -932,19 +944,18 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (TextUtils.isEmpty(access)) return;
         String bearer = "Bearer " + access;
 
+        // 1) 기사 위치
         ApiClient.get().getDriverLocation(bearer, currentReservationId)
                 .enqueue(new retrofit2.Callback<DriverLocationDto>() {
                     @Override public void onResponse(Call<DriverLocationDto> call,
                                                      Response<DriverLocationDto> res) {
                         if (res.code() == 204) {
-                            // 운행/위치 없음 → 마커 숨김
                             if (driverMarker != null) driverMarker.setMap(null);
                             driverMarker = null;
                             return;
                         }
-                        if (!res.isSuccessful() || res.body() == null) {
-                            return;
-                        }
+                        if (!res.isSuccessful() || res.body() == null) return;
+
                         DriverLocationDto d = res.body();
                         if (d.lat == null || d.lng == null) return;
 
@@ -954,24 +965,117 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         LatLng pos = new LatLng(d.lat, d.lng);
                         updateDriverMarker(pos, d);
                     }
-                    @Override public void onFailure(Call<DriverLocationDto> call, Throwable t) { /* ignore */ }
+                    @Override public void onFailure(Call<DriverLocationDto> call, Throwable t) {}
                 });
 
-        // 2) 활성 예약 지연 여부까지 같이 폴링
+        // 2) 활성 예약 지연 여부
         ApiClient.get().getActiveReservation(bearer)
                 .enqueue(new retrofit2.Callback<ReservationResponse>() {
-                    @Override
-                    public void onResponse(Call<ReservationResponse> call,
-                                           Response<ReservationResponse> res) {
+                    @Override public void onResponse(Call<ReservationResponse> call,
+                                                     Response<ReservationResponse> res) {
                         if (res.isSuccessful() && res.body() != null) {
-                            boolean delayed = res.body().delayed != null && res.body().delayed;
-                            applyDelayBadge(delayed); // ★ 여기서 매번 갱신
+                            ReservationResponse r = res.body();
+                            boolean delayed = r.delayed != null && r.delayed;
+                            applyDelayBadge(delayed);
+
+                            // 🔽 여기서 arrival-state까지 같이 조회
+                            fetchArrivalStateAndMaybeShowDialogs(bearer, r);
                         }
                     }
-                    @Override
-                    public void onFailure(Call<ReservationResponse> call, Throwable t) {}
+                    @Override public void onFailure(Call<ReservationResponse> call, Throwable t) {}
                 });
     }
+
+    private void fetchArrivalStateAndMaybeShowDialogs(String bearer, ReservationResponse r) {
+        if (r == null || r.id == null) return;
+
+        ApiClient.get().getReservationArrivalState(bearer, r.id)
+                .enqueue(new retrofit2.Callback<ApiService.ReservationArrivalState>() {
+                    @Override
+                    public void onResponse(Call<ApiService.ReservationArrivalState> call,
+                                           Response<ApiService.ReservationArrivalState> res) {
+                        if (!res.isSuccessful() || res.body() == null) return;
+                        ApiService.ReservationArrivalState st = res.body();
+                        if (st.unknown) return;
+
+                        maybeShowBoardingOrAlightDialogWithState(r, st);
+                    }
+
+                    @Override
+                    public void onFailure(Call<ApiService.ReservationArrivalState> call,
+                                          Throwable t) { /* ignore */ }
+                });
+    }
+
+
+    private void maybeShowBoardingOrAlightDialogWithState(@NonNull ReservationResponse r,
+                                                          @NonNull ApiService.ReservationArrivalState st) {
+        android.util.Log.d("BOARDING_DIALOG",
+                "id=" + r.id +
+                        ", status=" + r.status +
+                        ", stage=" + r.boardingStage +
+                        ", nearBoard=" + st.nearBoardStop +
+                        ", nearDest=" + st.nearDestStop +
+                        ", atBoard=" + st.atBoardStop +
+                        ", atDestNext=" + st.atDestNext);
+
+        if (isFinishing() || isDestroyed()) return;
+
+        final String status = r.status;
+        final String stage  = r.boardingStage;
+
+        if (TextUtils.isEmpty(status) || TextUtils.isEmpty(stage)) return;
+        if (!"CONFIRMED".equals(status)) return;
+
+        // 🔔 0) 이번역 알림 (notify 사용)
+        // 0-1) 이번역이 승차역이고 아직 NOSHOW → "곧 승차 정류장" 알림
+        if (st.nearBoardStop && "NOSHOW".equals(stage)) {
+            if (lastAlarmReservationIdBoard == null || !lastAlarmReservationIdBoard.equals(r.id)) {
+                String busNo = TextUtils.isEmpty(r.routeName) ? r.routeId : r.routeName;
+                String title = "[승차 안내] " + busNo;
+                String msg   = "곧 승차 정류장(" + r.boardStopName + ")에 도착합니다. 다음 정류장에서 승차 확인창이 뜹니다.";
+
+                showReservationNotification(1001, title, msg);
+                lastAlarmReservationIdBoard = r.id;
+            }
+        }
+
+        // 0-2) 이번역이 하차역이고 BOARDED → "곧 하차 정류장" 알림
+        if (st.nearDestStop && "BOARDED".equals(stage)) {
+            if (lastAlarmReservationIdDest == null || !lastAlarmReservationIdDest.equals(r.id)) {
+                String busNo = TextUtils.isEmpty(r.routeName) ? r.routeId : r.routeName;
+                String title = "[하차 안내] " + busNo;
+                String msg   = "곧 하차 정류장(" + r.destStopName + ")에 도착합니다. 다음 정류장에서 하차 확인창이 뜹니다.";
+
+                showReservationNotification(1002, title, msg);
+                lastAlarmReservationIdDest = r.id;
+            }
+        }
+
+        // 🔁 다이얼로그 중복 방지 체크
+        if (lastDialogReservationId != null
+                && lastDialogReservationId.equals(r.id)
+                && TextUtils.equals(lastDialogStage, stage)) {
+            return;
+        }
+
+        // ✅ 1) 이번역이 승차 '다음역'이고 아직 탑승 전(NOSHOW) → 승차 다이얼로그
+        if (st.atBoardStop && "NOSHOW".equals(stage)) {
+            showBoardingConfirmDialog(r);
+            lastDialogReservationId = r.id;
+            lastDialogStage = stage;
+            return;
+        }
+
+        // ✅ 2) 이번역이 하차 '다음역'이고 이미 탑승중(BOARDED) → 하차 다이얼로그
+        if (st.atDestNext && "BOARDED".equals(stage)) {
+            showAlightingConfirmDialog(r);
+            lastDialogReservationId = r.id;
+            lastDialogStage = stage;
+        }
+    }
+
+
 
     private int dp(int v) {
         return Math.round(getResources().getDisplayMetrics().density * v);
@@ -1138,9 +1242,6 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                     dismissArrivalsSheetIfShown();
                     enforceMainUiState();
                     updateReservationSheetVisibility(true, true);
-
-                    // ★ 여기서 승차/하차 확인 다이얼로그 필요하면 띄움
-                    maybeShowBoardingOrAlightDialog(r);
 
                     // ★ 활성 예약 바인딩 직후, 추적 시작(이중 안전)
                     startDriverTrackingForReservation(r);
@@ -1632,6 +1733,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                             public void onResponse(Call<Void> call, Response<Void> res) {
                                 if (res.isSuccessful()) {
                                     Toast.makeText(MainActivity.this, "하차가 확인되었습니다.", Toast.LENGTH_SHORT).show();
+                                    clearPathOverlays();   // ★ 추가
+                                    stopDriverTracking();  // ★ 추가
                                     fetchAndShowActiveReservation();
                                 }
                             }
@@ -1649,6 +1752,9 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         .enqueue(new retrofit2.Callback<Void>() {
                             @Override public void onResponse(Call<Void> call, Response<Void> res) {
                                 // 사용자가 안 눌러도 같은 엔드포인트 호출해서 자동 완료
+                                // ★ 경로/추적도 같이 종료
+                                clearPathOverlays();
+                                stopDriverTracking();
                                 fetchAndShowActiveReservation();
                             }
                             @Override public void onFailure(Call<Void> call, Throwable t) { }
@@ -2440,8 +2546,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         if (segmentPathOverlay == null) segmentPathOverlay = new com.naver.maps.map.overlay.PathOverlay();
         segmentPathOverlay.setCoords(latLngs);
-        segmentPathOverlay.setWidth(50);
-        segmentPathOverlay.setOutlineWidth(3);
+        segmentPathOverlay.setWidth(22);
+        segmentPathOverlay.setOutlineWidth(2);
         segmentPathOverlay.setOutlineColor(0xFFFFFFFF);
         segmentPathOverlay.setColor(Color.BLUE);
         segmentPathOverlay.setMap(naverMap);
@@ -2470,4 +2576,65 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         cameraFittedOnce = false;
         stopDriverTracking(); // ★ 추적 중단
     }
+
+    /** 예약 관련 알림용 채널 생성 (Oreo 이상) */
+    private void ensureReservationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (nm == null) return;
+
+            NotificationChannel ch = nm.getNotificationChannel(CHANNEL_ID_RESERVATION);
+            if (ch == null) {
+                ch = new NotificationChannel(
+                        CHANNEL_ID_RESERVATION,
+                        "예약 알림",                      // 설정 화면에 보이는 채널 이름
+                        NotificationManager.IMPORTANCE_HIGH
+                );
+                ch.setDescription("승차/하차 알림 채널");
+                nm.createNotificationChannel(ch);
+            }
+        }
+    }
+
+    private static final int REQ_POST_NOTI = 2001;
+    /** 메인으로 돌아오는 PendingIntent + 실제 notify */
+    private void showReservationNotification(int notifyId, String title, String message) {
+        ensureReservationChannel();
+
+        // 🔐 안드 13 이상: 알림 퍼미션 체크
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                // 퍼미션 아직 없으면 요청만 하고, 이번 알림은 스킵
+                ActivityCompat.requestPermissions(
+                        this,
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        REQ_POST_NOTI
+                );
+                return;
+            }
+        }
+
+        // 메인 화면으로 돌아오는 인텐트
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pi = PendingIntent.getActivity(
+                this,
+                notifyId,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        NotificationCompat.Builder nb = new NotificationCompat.Builder(this, CHANNEL_ID_RESERVATION)
+                .setSmallIcon(R.drawable.vector)   // <- 여기 실제 있는 아이콘
+                .setContentTitle(title)
+                .setContentText(message)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(pi);
+
+        NotificationManagerCompat.from(this).notify(notifyId, nb.build());
+    }
+
+
 }
