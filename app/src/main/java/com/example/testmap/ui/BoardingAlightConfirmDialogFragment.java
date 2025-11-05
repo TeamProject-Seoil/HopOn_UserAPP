@@ -8,6 +8,7 @@ import android.os.CountDownTimer;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -133,12 +134,24 @@ public class BoardingAlightConfirmDialogFragment extends DialogFragment {
 
         startTimer(mode);
 
-        // 다이얼로그 폭 줄이기 (둥글둥글 카드 느낌)
+        // 배경 투명(내부 레이아웃이 카드 모양/모서리)
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         }
 
         return dialog;
+    }
+
+    // ★ 여기서 너비를 키워줌
+    @Override
+    public void onStart() {
+        super.onStart();
+        Dialog dialog = getDialog();
+        if (dialog != null && dialog.getWindow() != null) {
+            int width = (int) (requireContext().getResources()
+                    .getDisplayMetrics().widthPixels * 0.9); // 화면의 90%
+            dialog.getWindow().setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
     }
 
     private void startTimer(Mode mode) {
@@ -169,7 +182,6 @@ public class BoardingAlightConfirmDialogFragment extends DialogFragment {
         }.start();
     }
 
-
     private void stopTimer() {
         if (timer != null) {
             timer.cancel();
@@ -181,7 +193,7 @@ public class BoardingAlightConfirmDialogFragment extends DialogFragment {
     public void onDismiss(@NonNull DialogInterface dialog) {
         super.onDismiss(dialog);
         stopTimer();
-        // ★ 아직 아무 콜백도 안 나갔는데 다이얼로그가 사라졌으면 -> 취소로 처리
+        // 아직 아무 콜백도 안 나갔는데 다이얼로그가 사라졌으면 -> 취소로 처리
         if (!callbackFired && listener != null) {
             listener.onCancelled();
         }

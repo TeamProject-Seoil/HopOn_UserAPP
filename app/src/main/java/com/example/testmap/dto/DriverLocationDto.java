@@ -11,6 +11,8 @@ public class DriverLocationDto {
     public boolean stale;
     public String plainNo;    // ← 이거 추가해야 d.plainNo 접근 가능
 
+    public Boolean delayed;
+
     @SerializedName("routeType")      public String routeType;
     @SerializedName("routeTypeLabel") private String routeTypeLabel;
     @SerializedName("routeTypeCode")  private Integer routeTypeCode;

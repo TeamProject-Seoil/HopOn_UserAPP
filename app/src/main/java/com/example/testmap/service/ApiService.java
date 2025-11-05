@@ -209,13 +209,12 @@ public interface ApiService {
 
     /** 출발 정류장 도착 시, 팝업에서 '탑승했어요' 눌렀을 때 호출 → boardingStage: BOARDED */
     @POST("/api/reservations/{id}/board/confirm")
-    Call<ReservationResponse> confirmBoarding(@Header("Authorization") String bearer,
-                                              @Path("id") Long id);
+    Call<Void> confirmBoarding(@Header("Authorization") String bearer,
+                               @Path("id") Long id);
 
-    /** 하차 정류장 도착 시, 팝업에서 '하차했어요' 눌렀을 때 호출 → boardingStage: ALIGHTED, status: COMPLETED */
     @POST("/api/reservations/{id}/alight/confirm")
-    Call<ReservationResponse> confirmAlighting(@Header("Authorization") String bearer,
-                                               @Path("id") Long id);
+    Call<Void> confirmAlighting(@Header("Authorization") String bearer,
+                                @Path("id") Long id);
 
     // =========================================================
     // ===================== 즐겨찾기 ==========================

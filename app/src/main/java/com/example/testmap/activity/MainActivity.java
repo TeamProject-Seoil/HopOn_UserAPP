@@ -948,10 +948,28 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                         DriverLocationDto d = res.body();
                         if (d.lat == null || d.lng == null) return;
 
+                        boolean delayed = d.delayed != null && d.delayed;
+                        applyDelayBadge(delayed);
+
                         LatLng pos = new LatLng(d.lat, d.lng);
                         updateDriverMarker(pos, d);
                     }
                     @Override public void onFailure(Call<DriverLocationDto> call, Throwable t) { /* ignore */ }
+                });
+
+        // 2) 활성 예약 지연 여부까지 같이 폴링
+        ApiClient.get().getActiveReservation(bearer)
+                .enqueue(new retrofit2.Callback<ReservationResponse>() {
+                    @Override
+                    public void onResponse(Call<ReservationResponse> call,
+                                           Response<ReservationResponse> res) {
+                        if (res.isSuccessful() && res.body() != null) {
+                            boolean delayed = res.body().delayed != null && res.body().delayed;
+                            applyDelayBadge(delayed); // ★ 여기서 매번 갱신
+                        }
+                    }
+                    @Override
+                    public void onFailure(Call<ReservationResponse> call, Throwable t) {}
                 });
     }
 
@@ -1554,16 +1572,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 String bearer = "Bearer " + access;
 
                 ApiClient.get().confirmBoarding(bearer, currentReservationId)
-                        .enqueue(new retrofit2.Callback<ReservationResponse>() {
-                            @Override public void onResponse(Call<ReservationResponse> call,
-                                                             Response<ReservationResponse> res) {
-                                if (res.isSuccessful() && res.body()!=null) {
+                        .enqueue(new retrofit2.Callback<Void>() {
+                            @Override
+                            public void onResponse(Call<Void> call, Response<Void> res) {
+                                if (res.isSuccessful()) {
                                     Toast.makeText(MainActivity.this, "탑승이 확인되었습니다.", Toast.LENGTH_SHORT).show();
-                                    // 서버에서 boardingStage/ status 업데이트된 값 다시 바인딩
-                                    fetchAndShowActiveReservation();
+                                    fetchAndShowActiveReservation(); // ← 여기서 최신 상태 다시 조회
                                 }
                             }
-                            @Override public void onFailure(Call<ReservationResponse> call, Throwable t) { }
+                            @Override public void onFailure(Call<Void> call, Throwable t) { }
                         });
             }
 
@@ -1610,16 +1627,15 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 String bearer = "Bearer " + access;
 
                 ApiClient.get().confirmAlighting(bearer, currentReservationId)
-                        .enqueue(new retrofit2.Callback<ReservationResponse>() {
-                            @Override public void onResponse(Call<ReservationResponse> call,
-                                                             Response<ReservationResponse> res) {
-                                if (res.isSuccessful() && res.body()!=null) {
+                        .enqueue(new retrofit2.Callback<Void>() {
+                            @Override
+                            public void onResponse(Call<Void> call, Response<Void> res) {
+                                if (res.isSuccessful()) {
                                     Toast.makeText(MainActivity.this, "하차가 확인되었습니다.", Toast.LENGTH_SHORT).show();
-                                    // status = COMPLETED, boardingStage = ALIGHTED 상태를 다시 반영
                                     fetchAndShowActiveReservation();
                                 }
                             }
-                            @Override public void onFailure(Call<ReservationResponse> call, Throwable t) { }
+                            @Override public void onFailure(Call<Void> call, Throwable t) { }
                         });
             }
 
@@ -1630,13 +1646,12 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 String bearer = "Bearer " + access;
 
                 ApiClient.get().confirmAlighting(bearer, currentReservationId)
-                        .enqueue(new retrofit2.Callback<ReservationResponse>() {
-                            @Override public void onResponse(Call<ReservationResponse> call,
-                                                             Response<ReservationResponse> res) {
+                        .enqueue(new retrofit2.Callback<Void>() {
+                            @Override public void onResponse(Call<Void> call, Response<Void> res) {
                                 // 사용자가 안 눌러도 같은 엔드포인트 호출해서 자동 완료
                                 fetchAndShowActiveReservation();
                             }
-                            @Override public void onFailure(Call<ReservationResponse> call, Throwable t) { }
+                            @Override public void onFailure(Call<Void> call, Throwable t) { }
                         });
             }
 
