@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- 삼각형 경고 표지 -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M12,2 L2,22 H22 Z" />
+
+    <!-- 느낌표 몸통 -->
+    <path
+        android:fillColor="@color/mainblue"
+        android:pathData="M11,9 H13 V15 H11 Z" />
+
+    <!-- 느낌표 점 -->
+    <path
+        android:fillColor="@color/mainblue"
+        android:pathData="M11,17 H13 V19 H11 Z" />
+
+</vector>

@@ -2448,8 +2448,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         // onClickFavoriteItem(...) 내부 리스너 교체 부분
         dialog.setOnActionListener(new ReserveCardDialogFragment.OnActionListener() {
             @Override public void onReserveClicked(boolean boardingAlarm, boolean dropOffAlarm) {
-                dialog.dismissAllowingStateLoss();
-
+                // 1) 예약 요청 객체 만들기
                 ReservationCreateRequest req = new ReservationCreateRequest();
                 req.routeId       = f.routeId;
                 req.direction     = f.direction;
@@ -2461,18 +2460,27 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 req.destArsId     = f.destArsId;
                 req.routeName     = f.routeName;
 
+                // 2) 근처 정류장인지 검사
+                if (!isBoardStopNearCurrentPosition(req.boardArsId)) {
+                    // 🔔 예쁘게 꾸민 다이얼로그 호출
+                    showOutOfRangeDialog("즐겨찾기");
+                    return;
+                }
+
+                // 3) 조건 통과 → 실제 예약 진행
+                dialog.dismissAllowingStateLoss();
+
                 String busNo = !TextUtils.isEmpty(f.routeName) ? f.routeName : f.routeId;
                 createReservationAndBind(req, busNo);
             }
+
             @Override public void onCancelClicked() { /* no-op */ }
             @Override public void onFavoriteChanged(boolean isFav, Long favId) {
-                fetchFavoritesIntoDrawer(); // 서버 반영 후 드로어 동기화
+                fetchFavoritesIntoDrawer();
             }
         });
 
-        drawerLayout.post(() ->
-                dialog.show(getSupportFragmentManager(), "reserve_card")
-        );
+
     }
 
     private void onClickRecentItem(RecentItem item) {
@@ -2510,8 +2518,7 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
         dialog.setOnActionListener(new ReserveCardDialogFragment.OnActionListener() {
             @Override public void onReserveClicked(boolean boardingAlarm, boolean dropOffAlarm) {
-                dialog.dismissAllowingStateLoss();
-
+                // 1) 요청 만들기
                 ReservationCreateRequest req = new ReservationCreateRequest();
                 req.routeId       = item.getRouteId();
                 req.direction     = item.getDirection();
@@ -2523,14 +2530,26 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
                 req.destArsId     = item.getDestArsId();
                 req.routeName     = item.getRouteName();
 
+                // 2) 근처 정류장 검사
+                if (!isBoardStopNearCurrentPosition(req.boardArsId)) {
+                    showOutOfRangeDialog("최근 이용내역");
+                    return;
+                }
+
+                // 3) 통과 → 예약 진행
+                dialog.dismissAllowingStateLoss();
+
                 String busNo = !TextUtils.isEmpty(item.getRouteName()) ? item.getRouteName() : item.getRouteId();
                 createReservationAndBind(req, busNo);
             }
+
             @Override public void onCancelClicked() { /* no-op */ }
             @Override public void onFavoriteChanged(boolean nowFav, Long favId) {
                 fetchFavoritesIntoDrawer();
             }
         });
+
+
 
         drawerLayout.post(() ->
                 dialog.show(getSupportFragmentManager(), "reserve_card")
@@ -2755,5 +2774,72 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
             }
         }
     }
+
+    /**
+     * 즐겨찾기/최근 항목의 승차 ARS(ID)가
+     * 현재 주변정류장 목록(stationMarkers) 안에 있는지 체크
+     * → 있어야 "근처 반경 내 정류장"으로 간주
+     */
+    private boolean isBoardStopNearCurrentPosition(@Nullable String boardArsId) {
+        if (TextUtils.isEmpty(boardArsId)) return false;
+
+        // 주변 정류장 정보가 아직 없으면 일단 false
+        if (stationMarkers.isEmpty()) return false;
+
+        for (Marker m : stationMarkers) {
+            Object tag = m.getTag();
+            if (tag instanceof StationDto st) {
+                if (!TextUtils.isEmpty(st.arsId) &&
+                        TextUtils.equals(st.arsId, boardArsId)) {
+                    // 현재 반경(RADIUS_M) 내에 있는 승차 정류장
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 근처 정류장이 아닐 때 안내 다이얼로그
+     * sourceLabel: "즐겨찾기", "최근 이용내역" 등 출처 텍스트
+     */
+    private void showOutOfRangeDialog(@NonNull String sourceLabel) {
+        View content = getLayoutInflater().inflate(R.layout.dialog_out_of_range, null, false);
+
+        TextView tvTitle     = content.findViewById(R.id.tvTitle);
+        TextView tvMessage   = content.findViewById(R.id.tvMessage);
+        TextView tvRangeInfo = content.findViewById(R.id.tvRangeInfo);
+        Button   btnOk       = content.findViewById(R.id.btnOk);
+
+        // 타이틀/메시지 동적으로 살짝 변경
+        String title = "이 " + sourceLabel + " 조합은\n예약할 수 없어요";
+        tvTitle.setText(title);
+
+        tvMessage.setText(
+                "현재 위치 근처 정류장이 아니라\n"
+                        + sourceLabel + "에서 선택한 이 조합으로는 예약할 수 없어요."
+        );
+
+        // RANGE_METERS 상수 사용 ( = RADIUS_M )
+        tvRangeInfo.setText(
+                "반경 " + RANGE_METERS + "m 이내 승차 정류장에서만 예약할 수 있어요."
+        );
+
+        AlertDialog dialog = new MaterialAlertDialogBuilder(MainActivity.this)
+                .setView(content)
+                .create();
+
+        // 둥근 카드가 잘 보이게 배경 투명 처리
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(
+                    new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
+            );
+        }
+
+        btnOk.setOnClickListener(v -> dialog.dismiss());
+
+        dialog.show();
+    }
+
 
 }

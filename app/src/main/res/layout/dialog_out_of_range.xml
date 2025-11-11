@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:background="@drawable/bg_white_card"
+    android:gravity="center_horizontal">
+
+    <!-- 상단 아이콘 -->
+    <ImageView
+        android:id="@+id/imgIcon"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="12dp"
+        android:src="@drawable/ic_location_warning"
+        android:tint="@color/mainblue"
+        android:contentDescription="@string/app_name" />
+
+    <!-- 타이틀 -->
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="이 구간은 예약할 수 없어요"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/black"
+        android:gravity="center"
+        android:layout_marginBottom="8dp" />
+
+    <!-- 설명 텍스트 -->
+    <TextView
+        android:id="@+id/tvMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="현재 위치 근처 정류장이 아니라\n이 조합으로는 예약할 수 없어요."
+        android:textSize="14sp"
+        android:gravity="center"
+        android:textColor="@color/gray_700"
+        android:lineSpacingExtra="3dp"
+        android:layout_marginBottom="12dp" />
+
+    <!-- 반경 안내용 작은 텍스트 -->
+    <TextView
+        android:id="@+id/tvRangeInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="반경 300m 이내 승차 정류장에서만 예약할 수 있어요."
+        android:textSize="12sp"
+        android:textColor="@color/gray_500"
+        android:gravity="center"
+        android:layout_marginBottom="18dp" />
+
+    <!-- 확인 버튼 -->
+    <Button
+        android:id="@+id/btnOk"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:text="확인"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/white"
+        android:backgroundTint="@color/mainblue"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp" />
+
+</LinearLayout>

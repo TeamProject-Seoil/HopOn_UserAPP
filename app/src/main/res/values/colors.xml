@@ -22,4 +22,5 @@
     <color name="colorLogout">#D32F2F</color>
     <color name="colorOnLogout">#FFFFFF</color>
     <color name="colorTextSecondary">#6B6B6B</color>
+    <color name="gray_700">#616161</color>
 </resources>
